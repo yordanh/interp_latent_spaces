@@ -1,0 +1,37 @@
+{
+	"labels" : {
+		"train" : ["blue", "red", "green"],
+		"unseen" : []
+	},
+	"data_generation" : {
+		"train" : {
+			"spec" : {
+				"shape" : ["square"],
+			   	"scale" : ["big", "small"],
+			   	"orientation" : ["flat", "rotated"],
+			   	"colors" : ["blue", "red"]
+			}
+		},
+		"unseen" : [
+			{
+				"label" : "green",
+				"spec" : {
+					"shape" : ["square"],
+				   	"scale" : ["big", "small"],
+				   	"orientation" : ["flat", "rotated"],
+				   	"colors" : ["green"]
+				}
+			},
+			{
+				"label" : "medium",
+				"spec" : {
+					"shape" : ["square"],
+				   	"scale" : ["medium"],
+				   	"orientation" : ["flat", "rotated"],
+				   	"colors" : ["blue", "red"]
+				}
+			}
+
+		]
+	}
+}
