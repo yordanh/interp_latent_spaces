@@ -43,8 +43,6 @@ def main():
                         help='Name of the dataset to be used for experiments')
     parser.add_argument('--model', '-m', default='conv',
                         help='Convolutional or linear model')
-    # parser.add_argument('--mode', '-mo', default='verbose',
-    #                     help='Training mode')
     parser.add_argument('--beta', '-b', default=1,
                         help='Beta coefficient for the loss')
     args = parser.parse_args()
@@ -103,40 +101,6 @@ def main():
     optimizer = chainer.optimizers.Adam()
     optimizer.setup(model)
 
-    # if args.mode == "verbose":
-    #     # Set up an updater. StandardUpdater can explicitly specify a loss function
-    #     # used in the training with 'loss_func' option
-    #     updater = training.StandardUpdater(
-    #         train_iter, optimizer,
-    #         device=args.gpu, loss_func=model.get_loss_func())
-
-    #     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.out)
-    #     trainer.extend(extensions.Evaluator(test_iter, model, device=args.gpu,
-    #                                         eval_func=model.get_loss_func(k=10)))
-
-    #     trainer.extend(extensions.LogReport())
-    #     trainer.extend(extensions.PrintReport(
-    #         ['epoch', 'main/loss', 'validation/main/loss',
-    #          'main/rec_loss', 'validation/main/rec_loss', 'elapsed_time']))
-    #     trainer.extend(extensions.ProgressBar())
-
-    #     # Save two plot images to the result dir
-    #     if extensions.PlotReport.available():
-    #         trainer.extend(
-    #             extensions.PlotReport(['main/loss', 'validation/main/loss'],
-    #                                   'epoch', file_name='loss.png'))
-
-    #         trainer.extend(
-    #             extensions.PlotReport(['main/rec_loss', 'validation/main/rec_loss'],
-    #                                   'epoch', file_name='rec_loss.png'))
-    #         trainer.extend(
-    #             extensions.PlotReport(['main/label_loss', 'validation/main/label_loss'],
-    #                                   'epoch', file_name='label_loss.png'))
-
-    #     # Run the training loop
-    #     trainer.run()
-
-    # elif args.mode == "fast":
     train_losses = []
     train_accs = []
     lf = model.get_loss_func()
@@ -463,21 +427,11 @@ def plot_separate_distributions(test, test_labels, skip_labels, model, name, arg
     plt.close()
 
 
-
-
-
-    # for better inspection
-    # concise_colors = list(set(test_labels))
-    # test_labels = test_labels.tolist()
     counter = 0
     for label in set(test_labels):
         plt.figure(figsize=(6, 6))
         if label in skip_labels:
             continue
-        # indecies = [i for i, x in enumerate(test_labels) if x == label]
-        # filtered_test = chainer.Variable(test.take(indecies, axis=0))
-        # latent = model.get_latent(filtered_test)
-        # latent = latent.data
         latent = latent_all[counter]
         plt.scatter(latent[:, 0], latent[:, 1], c=colors[concise_colors.index(label)], label=str(label))
 

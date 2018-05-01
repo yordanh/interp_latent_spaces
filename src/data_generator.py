@@ -43,10 +43,7 @@ class DataGenerator(object):
             config_parser = ConfigParser("config/config.json")
             labels = config_parser.parse_labels()
             folders_for_training = labels["train"]
-            # folders_to_one_hot_encoding = {}
 
-            # for i, folder in enumerate(folders_for_training):
-            #     folders_to_one_hot_encoding[folder] = np.identity(len(folders_for_training))[i].astype(np.float32)
             print(folders_for_training)
             folders_for_unseen = labels["unseen"]
 
@@ -73,14 +70,12 @@ class DataGenerator(object):
                             train.append(cv2.imread(folder_name+folder+"/"+image_name, 1))
                     train_labels += [folder] * (int(data_split * number_of_images))
                     n = int(data_split * number_of_images)
-                    # train_vectors += list(np.tile(folders_to_one_hot_encoding[folder], (n, 1)))
                     train_vectors += list(np.tile(folders_for_training.index(folder), (n)))
 
                     for image_name in image_list[int(data_split * number_of_images):]:
                         test.append(cv2.imread(folder_name+folder+"/"+image_name, 1))#
                     test_labels += [folder] * (number_of_images - int(data_split * number_of_images))
                     n = number_of_images - int(data_split * number_of_images)
-                    # test_vectors += list(np.tile(folders_to_one_hot_encoding[folder], (n, 1)))
                     test_vectors += list(np.tile(folders_for_training.index(folder), (n)))
 
                 if folder in folders_for_unseen:
@@ -88,7 +83,6 @@ class DataGenerator(object):
                         unseen.append(cv2.imread(folder_name+folder+"/"+image_name, 1))#
                     unseen_labels += [folder] * (number_of_images - int(data_split * number_of_images))
                     n = number_of_images - int(data_split * number_of_images)
-                    # unseen_vectors += list(np.tile(folders_to_one_hot_encoding[folder], (n, 1)))
                     unseen_vectors += list(np.tile(folders_for_unseen.index(folder), (n)))
 
             # print("Train: {}".format(np.array(train_vectors)))

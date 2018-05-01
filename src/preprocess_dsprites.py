@@ -181,26 +181,3 @@ if __name__ == "__main__":
 	extract_label_groups(specs["train"])
 	for unseen_spec in specs["unseen"]:
 		extract_label_groups(unseen_spec[1], unseen=unseen_spec[0])
-
-	# # the labels we are interested in
-	# training_label_groups = {'shape':['square'],
-	# 		   		'scale':['big', 'small'],
-	# 		   		'orientation':['flat', 'rotated'],
-	# 		   		'colors': ['blue', 'red']}	
-	# extract_label_groups(training_label_groups)
-
-	# # the labels we are interested in
-	# unseen_label_groups = {'shape':['square'],
-	# 		   			   'scale':['big', 'small'],
-	# 		   			   'orientation':['flat', 'rotated'],
-	# 		   			   'colors': ['green']}
-	# unseen = unseen_label_groups['colors']
-	# extract_label_groups(unseen_label_groups, unseen=unseen)
-
-	# # the labels we are interested in
-	# unseen_label_groups = {'shape':['square'],
-	# 		   			   'scale':['medium'],
-	# 		   			   'orientation':['flat', 'rotated'],
-	# 		   			   'colors': ['blue', 'red']}
-	# unseen = unseen_label_groups['scale']
-	# extract_label_groups(unseen_label_groups, unseen=unseen)
