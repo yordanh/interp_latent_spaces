@@ -1,0 +1,9 @@
+# results
+result/*
+interesting_mnist/*
+
+# data
+data/*
+
+# notebook related files
+.ipynb_checkpoints/*
