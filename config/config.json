@@ -1,14 +1,16 @@
 {
+	"groups" : {
+		"0" : ["red", "blue"],
+		"1" : ["big", "small"]
+	},
 	"labels" : {
-		"train" : ["blue", "red", "green"],
+		"train" : ["blue", "red", "big", "small"],
 		"unseen" : []
 	},
 	"data_generation" : {
 		"train" : {
 			"spec" : {
-				"shape" : ["square"],
-			   	"scale" : ["big", "small"],
-			   	"orientation" : ["flat", "rotated"],
+				"scale" : ["big", "small"],
 			   	"colors" : ["blue", "red"]
 			}
 		},
@@ -16,18 +18,14 @@
 			{
 				"label" : "green",
 				"spec" : {
-					"shape" : ["square"],
-				   	"scale" : ["big", "small"],
-				   	"orientation" : ["flat", "rotated"],
+					"scale" : ["big", "small"],
 				   	"colors" : ["green"]
 				}
 			},
 			{
 				"label" : "medium",
 				"spec" : {
-					"shape" : ["square"],
-				   	"scale" : ["medium"],
-				   	"orientation" : ["flat", "rotated"],
+					"scale" : ["medium"],
 				   	"colors" : ["blue", "red"]
 				}
 			}

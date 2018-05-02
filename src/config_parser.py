@@ -21,3 +21,8 @@ class ConfigParser(object):
 		specs['unseen'] = self.config["labels"]["unseen"]
 		
 		return specs
+
+	def parse_groups(self):
+		groups = self.config["groups"]
+
+		return groups
