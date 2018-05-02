@@ -83,13 +83,13 @@ class VAE(chainer.Chain):
 class Conv_VAE(chainer.Chain):
     """Convolutional Variational AutoEncoder"""
 
-    def __init__(self, in_channels, n_latent, n_labels, beta=1):
+    def __init__(self, in_channels, n_latent, groups, beta=1):
         super(Conv_VAE, self).__init__()
         with self.init_scope():
 
             self.in_channels = in_channels
             self.beta = beta
-            self.n_labels = n_labels
+            self.groups = groups
 
             # encoder
             self.encoder_conv_0 = L.Convolution2D(in_channels, 32, ksize=3, pad=1) # (100, 100)
@@ -105,8 +105,9 @@ class Conv_VAE(chainer.Chain):
             self.encoder_mu = L.Linear(8, n_latent)
             self.encoder_ln_var = L.Linear(8, n_latent)
 
-            # label predictor
-            self.label_predictor = L.Linear(n_latent, n_labels)
+            # label predictors taking only the mean value into account
+            self.label_predictor_0 = L.Linear(1, len(self.groups["0"]))
+            self.label_predictor_1 = L.Linear(1, len(self.groups["1"]))
 
             # decoder
             self.decoder_dense_0 = L.Linear(n_latent, 8)
@@ -163,16 +164,25 @@ class Conv_VAE(chainer.Chain):
         else:
             return out_img
     
-    def predict_label(self, mu, softmax=True):
-        # print(mu)
-        # print(mu.data[:,0])
-        one_hot_vector = self.label_predictor(mu)
+    def predict_label(self, mu, ln_var, softmax=True):
+        mu_0 = mu[:,0, None]
+        mu_1 = mu[:,1, None]
+
+        ln_var_0 = ln_var[:,0, None]
+        ln_var_1 = ln_var[:,1, None]
+
+        latent_0 = F.concat((mu_0, ln_var_0), axis=1)
+        latent_1 = F.concat((mu_1, ln_var_1), axis=1)
+        # latent = mu
+
+        one_hot_vector_0 = self.label_predictor_0(mu_0)
+        one_hot_vector_1 = self.label_predictor_1(mu_1)
 
         # need the check because the bernoulli_nll has a sigmoid in it
         if softmax:
-            return F.softmax(one_hot_vector)
+            return F.softmax(one_hot_vector_0), F.softmax(one_hot_vector_1)
         else:
-            return one_hot_vector
+            return one_hot_vector_0, one_hot_vector_1
 
     def get_latent(self, x):
         mu, ln_var = self.encode(x)
@@ -194,7 +204,8 @@ class Conv_VAE(chainer.Chain):
         def lf(x):
 
             in_img = x[0]
-            in_labels = x[1]
+            in_labels_0 = x[1]
+            in_labels_1 = x[2]
 
             mu, ln_var = self.encode(in_img)
             batchsize = len(mu.data)
@@ -206,25 +217,23 @@ class Conv_VAE(chainer.Chain):
                 z = F.gaussian(mu, ln_var)
 
                 out_img = self.decode(z, sigmoid=False)
-                out_labels = self.predict_label(mu, softmax=False)
-                label_acc = F.accuracy(out_labels, in_labels)
-
                 rec_loss += F.bernoulli_nll(in_img, out_img) / (k * batchsize)
-                label_loss += F.softmax_cross_entropy(out_labels, in_labels) / (k * batchsize)
-                # rec_loss += F.mean_squared_error(in_img, out_img) / (k * batchsize)
-                # rec_loss += F.gaussian_nll(in_img, out_img, self.xp.zeros_like(out_img) - 10) / (k * batchsize)
+
+                out_labels_0, out_labels_1 = self.predict_label(mu, ln_var, softmax=False)
+                label_acc += F.accuracy(out_labels_0, in_labels_0)
+                label_acc += F.accuracy(out_labels_1, in_labels_1)
+                label_loss += F.softmax_cross_entropy(out_labels_0, in_labels_0) / (k * batchsize)
+                label_loss += F.softmax_cross_entropy(out_labels_1, in_labels_1) / (k * batchsize)
+
             self.rec_loss = rec_loss
             self.label_loss = 100000 * label_loss
             self.label_acc = label_acc
 
-            # print("Label loss: {}".format(label_loss.data))
-            
             kl = gaussian_kl_divergence(mu, ln_var) / (batchsize)
             self.kl = self.beta * kl
-            # print("Mean: {0} \t Ln_var: {1} \t KL: {2}".format(mu, ln_var, kl))
-            # self.loss = self.rec_loss + 10000000 * self.label_loss + self.beta * kl / batchsize
+            
             self.loss = self.rec_loss + self.label_loss + self.kl
-            # chainer.report(
-            #     {'rec_loss': rec_loss,'label_loss':self.label_loss , 'loss': self.loss}, observer=self)
+            
             return self.loss, self.rec_loss, self.label_loss, self.label_acc, self.kl
+        
         return lf
