@@ -45,6 +45,8 @@ def main():
                         help='Convolutional or linear model')
     parser.add_argument('--beta', '-b', default=1,
                         help='Beta coefficient for the loss')
+    parser.add_argument('--labels', '-l', default="singular", 
+                        help='Determined how to treat the labels for the different images')
     args = parser.parse_args()
 
     print('\n###############################################')
@@ -60,7 +62,7 @@ def main():
     print('###############################################\n')
 
     generator = data_generator.DataGenerator()
-    train, train_labels, train_concat, train_vectors, test, test_labels, test_concat, test_vectors, unseen, unseen_labels, unseen_concat, unseen_vectors = generator.generate_dataset(args)
+    train, train_labels, train_concat, train_vectors, test, test_labels, test_concat, test_vectors, unseen, unseen_labels, unseen_concat, unseen_vectors, groups = generator.generate_dataset(args)
     data_dimensions = train.shape
     print('\n###############################################')
     print("DATA_LOADED")
@@ -81,14 +83,14 @@ def main():
     # Prepare VAE model, defined in net.py
     if args.model == "conv":
         if args.data == "sprites":
-            model = net.Conv_VAE(train.shape[1], n_latent=args.dimz, n_labels=len(set(train_labels)), beta=args.beta)
+            model = net.Conv_VAE(train.shape[1], n_latent=args.dimz, groups=groups, beta=args.beta)
         else:
             model = net.Conv_VAE_MNIST(train.shape[1], args.dimz, beta=args.beta)
     else:
         model = net.VAE(train.shape[1], args.dimz, 500)
 
 
-    compare_labels(test, np.array(test_vectors), model)    
+    compare_labels(test, np.array(test_vectors), model, args)    
 
 
     if args.gpu >= 0:
@@ -186,10 +188,44 @@ def main():
     plot_loss_curves(stats, args)
 
     print("Predict labels\n")
-    compare_labels(test, np.array(test_vectors), model)    
+    compare_labels(test, np.array(test_vectors), model, args)    
 
     print("Performing Reconstructions\n")
-    # reconstruct training examples
+    perform_reconstructions(model, train, test, unseen, args)
+
+    # visualise distributions in the latent space
+    print("Plot Latent Testing Distribution for Sigular Labels\n")
+    plot_separate_distributions(np.repeat(test, 2, axis=0), test_labels, skip_labels=unseen_labels, model=model, name="sigular_separate", args=args)
+    plot_overall_distribution(np.repeat(test, 2, axis=0), test_labels, skip_labels=unseen_labels, model=model, name="singular_together", args=args)
+
+    if args.labels == "composite":
+        print("Plot Latent Testing Distribution for Composite Labels\n")
+        test_labels = np.append(test_labels, unseen_labels, axis=0)
+        test_labels = test_labels.reshape(len(test_labels) / 2, 2)
+        test_labels = np.array(["_".join(x) for x in test_labels])
+        plot_separate_distributions(test, test_labels, skip_labels=unseen_labels, model=model, name="composite_separate", args=args)
+        plot_overall_distribution(test, test_labels, skip_labels=unseen_labels, model=model, name="composite_together", args=args)
+
+    # print("Plot Latent Testing + Unseen Distribution\n")
+    # # all test datapoints + unseen datapoints
+    # test = np.append(test, unseen, axis=0)
+    # plot_separate_distributions(test, test_labels, skip_labels=[], model=model, name="a_separate_unseen", args=args)
+
+    # visualise the learnt data manifold in the latent space
+    print("Plot Reconstructed images sampeld from a standart Normal\n")
+    plot_sampled_images(model, image_size=data_dimensions[-1], image_channels=data_dimensions[1], args=args)
+
+
+########################################
+############ UTIL FUNCTIONS ############
+########################################
+
+def clean_last_results(folder_name):
+    all_images = list(filter(lambda filename : '.png' in filename, os.listdir(folder_name)))
+    map(lambda x : os.remove(folder_name + x), all_images)
+
+
+def perform_reconstructions(model, train, test, unseen, args):
     train_ind = np.linspace(0, len(train) - 1, 9, dtype=int)
     x = chainer.Variable(np.asarray(train[train_ind]))
     with chainer.using_config('train', False), chainer.no_backprop_mode():
@@ -219,30 +255,6 @@ def main():
         np.random.normal(0, 1, (9, args.dimz)).astype(np.float32))
     x = model.decode(z)
     save_images(x.data, os.path.join(args.out, 'sampled'), args=args)
-
-    # visualise distributions in the latent space
-    print("Plot Latent Testing Distribution\n")
-    test_labels = np.append(test_labels, unseen_labels, axis=0)
-    plot_separate_distributions(test, test_labels, skip_labels=unseen_labels, model=model, name="a_separate", args=args)
-    test = np.append(test, unseen, axis=0)
-    # all test datapoints
-    plot_overall_distribution(test, test_labels, skip_labels=unseen_labels, model=model, name="b_together", args=args)
-
-    print("Plot Latent Testing + Unseen Distribution\n")
-    # all test datapoints + unseen datapoints
-    plot_separate_distributions(test, test_labels, skip_labels=[], model=model, name="a_separate_unseen", args=args)
-
-    print("Plot Reconstructed images sampeld from a standart Normal\n")
-    # visualise the learnt data manifold in the latent space
-    plot_sampled_images(model, image_size=data_dimensions[-1], image_channels=data_dimensions[1], args=args)
-
-########################################
-############ UTIL FUNCTIONS ############
-########################################
-
-def clean_last_results(folder_name):
-    all_images = list(filter(lambda filename : '.png' in filename, os.listdir(folder_name)))
-    map(lambda x : os.remove(folder_name + x), all_images)
 
 
 def plot_loss_curves(stats, args):
@@ -285,27 +297,19 @@ def plot_loss_curves(stats, args):
     plt.close()
 
 
-def compare_labels(test, test_labels, model, cuttoff_thresh=1):
-    mu, _ = model.encode(test)
-    hat_labels = model.predict_label(mu, softmax=True)
+def compare_labels(test, test_labels, model, args, cuttoff_thresh=1):
 
-    result = []
-    counters = {}
+    mu, ln_var = model.encode(test)
+    
+    if args.labels == "composite":
+        hat_labels_0, hat_labels_1 = model.predict_label(mu, ln_var, softmax=True)
 
-    for label in test_labels:
-        counters[label] = 0
+        print("\nValidation Accuracy for group 0: {0}\n".format(F.accuracy(hat_labels_0, test_labels[0])))
+        print("\nValidation Accuracy for group 1: {0}\n".format(F.accuracy(hat_labels_1, test_labels[1])))
+    elif args.labels == "singular":
+        hat_labels = model.predict_label(mu, ln_var, softmax=True)
 
-    for i, label in enumerate(test_labels):
-        hat_label = hat_labels.data[i]
-        if counters[label] > cuttoff_thresh:
-            continue
-        else:
-            result.append((hat_label, label))
-            counters[label] += 1
-
-    print(np.array(result))
-
-    print("\nValidation Accuracy: {0}\n".format(F.accuracy(hat_labels, test_labels)))
+        print("\nValidation Accuracy: {0}\n".format(F.accuracy(hat_labels, test_labels)))
 
 
 # Visualize the results
@@ -378,8 +382,8 @@ def plot_overall_distribution(test, test_labels, skip_labels, model, name, args)
 def plot_separate_distributions(test, test_labels, skip_labels, model, name, args):
     latent_all = []
 
-    colors = ['c', 'b', 'g', 'y', 'k', 'orange']
-    colors_dist = ['maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral']
+    colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'lime', 'maroon', 'salmon']
+    colors_dist = ['maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral', 'k', 'c', 'b']
     # fit a distribution over the latent projections for each label
     plt.figure(figsize=(6, 6))
     concise_colors = list(set(test_labels))

@@ -13,6 +13,7 @@ from config_parser import ConfigParser
 parser = argparse.ArgumentParser(description='Process the dSprited dataset.')
 parser.add_argument('--image_size', default=100, type=int, help='Width and height of the square patch in px.')
 parser.add_argument('--cutoff', default=10000, type=int, help='Cutoff number - max number of images per class extracted')
+parser.add_argument('--labels', '-l', default="singular", help='Determined how to treat the labels for the different images')
 
 data = np.load("/home/yordan/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz")
 label_counters = {}
@@ -29,7 +30,7 @@ def prep_dir(folder_name):
 		os.makedirs(folder_name)
 
 
-def extract(folder_name=None, labels=None, latent_spec=None, cutoff=None, image_size=None, verbose=False):
+def extract(folder_name=None, labels=None, args=None, latent_spec=None, cutoff=None, image_size=None, verbose=False):
 
 	print("Extracting images for " + folder_name + str(labels))
 	indecies = []
@@ -52,13 +53,16 @@ def extract(folder_name=None, labels=None, latent_spec=None, cutoff=None, image_
 		image = numpy.tile(image.reshape(image_size,image_size,1), (1, 1, 3)) * bgr_color
 		
 		# singular labels
-		for label in labels:
-			cv2.imwrite(folder_name + label + "/" + str(label_counters[label]) + ".png", image)
-			label_counters[label] += 1
+		if args.labels == "singular":
+			for label in labels:
+				cv2.imwrite(folder_name + label + "/" + str(label_counters[label]) + ".png", image)
+				label_counters[label] += 1
 
 		# # composite labels
-		# object_folder_name = folder_name + "_".join(labels) + "/"		
-		# cv2.imwrite(object_folder_name + "/" + str(i) + ".png", image)
+		elif args.labels == "composite":
+			object_folder_name = folder_name + "_".join(labels) + "/"		
+			cv2.imwrite(object_folder_name + "/" + str(i) + ".png", image)
+			label_counters["_".join(labels)] += 1
 
 		if verbose:
 			cv2.imshow("image", image)
@@ -70,7 +74,7 @@ def extract(folder_name=None, labels=None, latent_spec=None, cutoff=None, image_
 	print(label_counters)
 
 
-def extract_label_groups(label_groups, unseen=None):
+def extract_label_groups(label_groups, args, unseen=None):
 	# build up the labels for all objects - take the combinations of the
 	# lists in label_groups; color is a special case, since we add it - it is
 	# not part of the given latent factors of variation
@@ -81,30 +85,33 @@ def extract_label_groups(label_groups, unseen=None):
 	# singular labels
 	# extract images for each possible label combination from the given groups and 
 	# export in the relevant folders
-	for labels in object_labels:
-		for label in labels:
-			if label not in label_counters.keys():
-				label_counters[label] = 0
-			object_folder_name = folder_name + label + "/"
-			if not os.path.exists(object_folder_name):
-				os.makedirs(object_folder_name)
+	if args.labels == "singular":
+		for labels in object_labels:
+			for label in labels:
+				if label not in label_counters.keys():
+					label_counters[label] = 0
+				object_folder_name = folder_name + label + "/"
+				if not os.path.exists(object_folder_name):
+					os.makedirs(object_folder_name)
 
-
-		revised_latent_spec = revise_latent_spec(copy.deepcopy(latent_spec), labels, mappings)
-		if unseen != None:
-			labels = filter(lambda label : label in unseen, labels)
-		extract(folder_name=folder_name, labels=labels, latent_spec=revised_latent_spec, image_size=args.image_size, cutoff=args.cutoff)
+			revised_latent_spec = revise_latent_spec(copy.deepcopy(latent_spec), labels, mappings)
+			
+			if unseen != None:
+				labels = filter(lambda label : label in unseen, labels)
+			extract(folder_name=folder_name, labels=labels, args=args, latent_spec=revised_latent_spec, image_size=args.image_size, cutoff=args.cutoff)
 
 
 	# # composite labels
 	# # extract images for each possible label combination from the given groups and 
 	# # export in the relevant folders
-	# for labels in object_labels:
-	# 	# for label in labels:
-	# 	object_folder_name = folder_name + "_".join(labels) + "/"
-	# 	os.makedirs(object_folder_name)
-	# 	revised_latent_spec = revise_latent_spec(copy.deepcopy(latent_spec), labels, mappings)
-	# 	extract(folder_name=folder_name, labels=labels, latent_spec=revised_latent_spec, image_size=args.image_size, cutoff=args.cutoff)
+	elif args.labels == "composite":
+		for labels in object_labels:
+			# for label in labels:
+			object_folder_name = folder_name + "_".join(labels) + "/"
+			os.makedirs(object_folder_name)
+			revised_latent_spec = revise_latent_spec(copy.deepcopy(latent_spec), labels, mappings)
+			label_counters["_".join(labels)] = 0
+			extract(folder_name=folder_name, labels=labels, args=args, latent_spec=revised_latent_spec, image_size=args.image_size, cutoff=args.cutoff)
 
 # revise the latent class specification, depending on the 
 # given labels; we know what labels map to what classes
@@ -166,7 +173,7 @@ if __name__ == "__main__":
 	# [4] Position X: 32 values in [0, 1]
 	# [5] Position Y: 32 values in [0, 1]
 	latent_spec = {'color': ['white', 'red', 'yellow', 'green', 'blue', 'pink'],
-				   'shape': range(3),
+				   'shape': [0],#range(3),
 				   'scale': range(6),
 				   'orientation': range(40),
 				   'x': [15, 16],
@@ -178,6 +185,6 @@ if __name__ == "__main__":
 
 	specs = config_parser.parse_specs()
 	
-	extract_label_groups(specs["train"])
+	extract_label_groups(specs["train"], args)
 	for unseen_spec in specs["unseen"]:
-		extract_label_groups(unseen_spec[1], unseen=unseen_spec[0])
+		extract_label_groups(unseen_spec[1], args, unseen=unseen_spec[0])
