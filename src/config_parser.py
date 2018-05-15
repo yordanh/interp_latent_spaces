@@ -15,12 +15,12 @@ class ConfigParser(object):
 		return specs
 
 	def parse_labels(self):
-		specs = {'train' : [], 'unseen' : []}
+		labels = {'train' : [], 'unseen' : []}
 		
-		specs['train'] = self.config["labels"]["train"]
-		specs['unseen'] = self.config["labels"]["unseen"]
+		labels['train'] = self.config["labels"]["train"]
+		labels['unseen'] = self.config["labels"]["unseen"]
 		
-		return specs
+		return labels
 
 	def parse_groups(self):
 		groups = self.config["groups"]
