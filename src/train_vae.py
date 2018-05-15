@@ -183,12 +183,13 @@ def main():
 
     config_parser = ConfigParser("config/config.json")
     labels = config_parser.parse_labels()
+    all_labels = np.append(test_labels, unseen_labels, axis=0)
+    colors = attach_colors(all_labels)
 
     model.to_cpu()  
 
-    # remove all images from previous experiments
-    print("Clean Images from Last experiment\n")
-    clean_last_results(args.out)
+    print("Clear Images from Last experiment\n")
+    clear_last_results(args.out)
 
     print("Saving the loss plots\n")
     plot_loss_curves(stats, args)
@@ -199,38 +200,34 @@ def main():
     print("Performing Reconstructions\n")
     perform_reconstructions(model, train, test, unseen, args)
 
-    # visualise distributions in the latent space
     print("Plot Latent Testing Distribution for Singular Labels\n")
-    plot_labels = np.append(test_labels, unseen_labels, axis=0)
-
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
-    skip = labels["unseen"]
-    plot_separate_distributions(data, plot_labels, skip_labels=skip, model=model, name="singular_separate", args=args)
-    plot_overall_distribution(data, plot_labels, skip_labels=skip, model=model, name="singular_together", args=args)
+    plot_labels = test_labels
+    plot_separate_distributions(data, plot_labels, colors=colors["singular"], model=model, name="singular_separate", args=args)
+    plot_overall_distribution(data, plot_labels, colors=colors["singular"], model=model, name="singular_together", args=args)
 
-    # all test datapoints + unseen datapoints
     print("Plot Latent Testing + Unseen Distribution\n")
-    skip = []
-    plot_separate_distributions(data, plot_labels, skip_labels=skip, model=model, name="singular_separate_unseen", args=args)
-    plot_overall_distribution(data, plot_labels, skip_labels=skip, model=model, name="singular_together_unseen", args=args)
+    data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
+    plot_labels = np.append(test_labels, unseen_labels, axis=0)
+    plot_separate_distributions(data, plot_labels, colors=colors["singular"], model=model, name="singular_separate_unseen", args=args)
+    plot_overall_distribution(data, plot_labels, colors=colors["singular"], model=model, name="singular_together_unseen", args=args)
 
     if args.labels == "composite":
         print("Plot Latent Testing Distribution for Composite Labels\n")
         # compose the composite labels
+        test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
+        plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
+        data = test
+        plot_separate_distributions(data, plot_labels, colors=colors["composite"], model=model, name="composite_separate", args=args)
+        plot_overall_distribution(data, plot_labels, colors=colors["composite"], model=model, name="composite_together", args=args)
+
+        print("Plot Latent Testing for Composite Labels + Unseen Distribution\n")
         test_labels = np.append(test_labels, unseen_labels, axis=0)
         test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
         plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
         data = np.append(test, unseen, axis=0)
-        skip = os.listdir("data/dSprites/unseen")
-        plot_separate_distributions(data, plot_labels, skip_labels=skip, model=model, name="composite_separate", args=args)
-        plot_overall_distribution(data, plot_labels, skip_labels=skip, model=model, name="composite_together", args=args)
-
-        # all test datapoints + unseen datapoints
-        print("Plot Latent Testing for Composite Labels + Unseen Distribution\n")
-
-        skip = []
-        plot_separate_distributions(data, plot_labels, skip_labels=skip, model=model, name="composite_separate_unseen", args=args)
-        plot_overall_distribution(data, plot_labels, skip_labels=skip, model=model, name="composite_together_unseen", args=args)
+        plot_separate_distributions(data, plot_labels, colors=colors["composite"], model=model, name="composite_separate_unseen", args=args)
+        plot_overall_distribution(data, plot_labels, colors=colors["composite"], model=model, name="composite_together_unseen", args=args)
 
 
     # visualise the learnt data manifold in the latent space
@@ -242,11 +239,14 @@ def main():
 ############ UTIL FUNCTIONS ############
 ########################################
 
-def clean_last_results(folder_name):
+
+# delete all result files from the output folder
+def clear_last_results(folder_name):
     all_images = list(filter(lambda filename : '.png' in filename, os.listdir(folder_name)))
     map(lambda x : os.remove(folder_name + x), all_images)
 
 
+# for a given set of example images, calculate their reconstructions
 def perform_reconstructions(model, train, test, unseen, args):
     train_ind = np.linspace(0, len(train) - 1, 9, dtype=int)
     x = chainer.Variable(np.asarray(train[train_ind]))
@@ -279,6 +279,7 @@ def perform_reconstructions(model, train, test, unseen, args):
     save_images(x.data, os.path.join(args.out, 'sampled'), args=args)
 
 
+# plot and save loss and accuracy curves
 def plot_loss_curves(stats, args):
     # overall train/validation losses
     plt.figure(figsize=(6, 6))
@@ -319,6 +320,7 @@ def plot_loss_curves(stats, args):
     plt.close()
 
 
+# calculate statistics for the predicted labels
 def compare_labels(test, test_labels, model, args, cuttoff_thresh=1):
 
     mu, ln_var = model.encode(test)
@@ -334,7 +336,7 @@ def compare_labels(test, test_labels, model, args, cuttoff_thresh=1):
         print("Validation Accuracy: {0}\n".format(F.accuracy(hat_labels, test_labels)))
 
 
-# Visualize the results
+# visualize the results
 def save_images(x, filename, args):
 
     fig, ax = plt.subplots(3, 3, figsize=(9, 9), dpi=100)
@@ -354,40 +356,67 @@ def save_images(x, filename, args):
     fig.savefig(filename)
 
 
-# plot a set of input datapoitns to the latent space and fit a normal distribution over the projections
-# show the contours for the overall data distribution
-def plot_overall_distribution(data, labels, skip_labels, model, name, args):
-    latent_all = None
+# attach a color to each singular and composite class labels, both for their data points 
+# and fitted overlayed distributions
+def attach_colors(labels, composite=True):
 
     colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral']
+    result = {"singular":{}, "composite":{}}
+
+    counter = 0
+    for label in set(labels):
+        if label in result["singular"]:
+            continue
+        else:
+            result["singular"][label] = {}
+            result["singular"][label]["data"] = colors[counter]
+            result["singular"][label]["dist"] = colors[counter + 1]
+            counter += 1
+
+    if composite:
+        labels = labels.reshape(len(labels) / 2, 2)
+        labels = np.array(["_".join(x) for x in labels])
+
+        counter = 0
+        for label in set(labels):
+            if label in result["composite"]:
+                continue
+            else:
+                result["composite"][label] = {}
+                result["composite"][label]["data"] = colors[counter]
+                result["composite"][label]["dist"] = colors[counter + 1]
+                counter += 1
+
+    return result
+
+
+# plot a set of input datapoitns to the latent space and fit a normal distribution over the projections
+# show the contours for the overall data distribution
+def plot_overall_distribution(data, labels, colors, model, name, args):
+    latent_all = None
 
     # scatter plot all the data points in the latent space
     plt.figure(figsize=(6, 6))
     concise_colors = list(set(labels))
     labels = labels.tolist()
     for label in set(labels):
-        # keep the color order between plot_overall_distribution and plot_separate_distributions 
-        if label in skip_labels:
-            continue
         indecies = [i for i, x in enumerate(labels) if x == label]
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
         latent = model.get_latent(filtered_data)
         latent = latent.data
-        plt.scatter(latent[:, 0], latent[:, 1], c=colors[concise_colors.index(label)], label=str(label))
+        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label))
 
         if latent_all is not None:
             latent_all = np.append(latent_all, latent, axis=0)
         else:
             latent_all = latent
-
     plt.legend(loc='upper right')
-
     plt.plot([-5, 5], [0, 0], 'r')
     plt.plot([0, 0], [-5, 5], 'r')
     plt.grid()
     plt.savefig(os.path.join(args.out, name))
     
-    # fit a distribution over all the latent projections
+    # fit and plot a distribution over all the latent projections
     delta = 0.025
     mean = np.mean(latent_all, axis=0)
     cov = np.cov(latent_all.T)
@@ -403,35 +432,28 @@ def plot_overall_distribution(data, labels, skip_labels, model, name, args):
 
 # plot a set of input datapoitns to the latent space and fit normal distributions over the projections
 # show the contours for the distribution for each label
-def plot_separate_distributions(data, labels, skip_labels, model, name, args):
+def plot_separate_distributions(data, labels, colors, model, name, args):
     latent_all = []
 
-    colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'lime', 'maroon', 'salmon']
-    colors_dist = ['maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral', 'k', 'c', 'b']
-    # fit a distribution over the latent projections for each label
+    # scatter plot all the data points in the latent space
     plt.figure(figsize=(6, 6))
-    concise_colors = list(set(labels))
     labels = labels.tolist()
     for label in set(labels):
-        if label in skip_labels:
-            continue
         indecies = [i for i, x in enumerate(labels) if x == label]
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
         latent = model.get_latent(filtered_data)
         latent = latent.data
         latent_all.append(latent)
-        plt.scatter(latent[:, 0], latent[:, 1], c=colors[concise_colors.index(label)], label=str(label))
+        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label))
     plt.legend(loc='upper right')
-
     plt.plot([-5, 5], [0, 0], 'r')
     plt.plot([0, 0], [-5, 5], 'r')
     plt.grid()
     plt.savefig(os.path.join(args.out, name))
 
+    # fit and overlay distributions for each class/label
     counter = 0
     for label in set(labels):
-        if label in skip_labels:
-            continue
         latent = latent_all[counter]
         counter += 1
 
@@ -442,23 +464,19 @@ def plot_separate_distributions(data, labels, skip_labels, model, name, args):
         y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
         X, Y = np.meshgrid(x, y)
         Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
-        plt.contour(X, Y, Z, colors=colors_dist[concise_colors.index(label)])
+        plt.contour(X, Y, Z, colors=colors[label]["dist"])
     plt.legend(loc='upper right')
-
     plt.plot([-5, 5], [0, 0], 'r')
     plt.plot([0, 0], [-5, 5], 'r')
     plt.savefig(os.path.join(args.out, name + "_overlayed"))
-
     plt.close()
 
-
+    # scatter datapoints and fit and overlay a distribution over each data label
     counter = 0
     for label in set(labels):
         plt.figure(figsize=(6, 6))
-        if label in skip_labels:
-            continue
         latent = latent_all[counter]
-        plt.scatter(latent[:, 0], latent[:, 1], c=colors[concise_colors.index(label)], label=str(label))
+        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label))
 
         delta = 0.025
         mean = np.mean(latent, axis=0)
@@ -467,10 +485,8 @@ def plot_separate_distributions(data, labels, skip_labels, model, name, args):
         y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
         X, Y = np.meshgrid(x, y)
         Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
-        plt.contour(X, Y, Z, colors=colors_dist[concise_colors.index(label)])
-
+        plt.contour(X, Y, Z, colors=colors[label]["dist"])
         plt.legend(loc='upper right')
-
         plt.plot([-5, 5], [0, 0], 'r')
         plt.plot([0, 0], [-5, 5], 'r')
         plt.grid()
