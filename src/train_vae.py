@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 
 import net
 import data_generator
+from config_parser import ConfigParser
 
 
 def main():
@@ -75,6 +76,8 @@ def main():
     print('###############################################\n')
 
     stats = {'train_loss': [], 'train_accs': [], 'valid_loss': [], 'valid_rec_loss': [], 'valid_label_loss': [], 'valid_label_acc': [], 'valid_kl': []}
+    label_to_color = {}
+
 
     train_iter = chainer.iterators.SerialIterator(train_concat, args.batchsize)
     test_iter = chainer.iterators.SerialIterator(test_concat, args.batchsize,
@@ -178,6 +181,9 @@ def main():
 ########### RESULTS ANALYSIS ###########
 ########################################
 
+    config_parser = ConfigParser("config/config.json")
+    labels = config_parser.parse_labels()
+
     model.to_cpu()  
 
     # remove all images from previous experiments
@@ -194,22 +200,38 @@ def main():
     perform_reconstructions(model, train, test, unseen, args)
 
     # visualise distributions in the latent space
-    print("Plot Latent Testing Distribution for Sigular Labels\n")
-    plot_separate_distributions(np.repeat(test, 2, axis=0), test_labels, skip_labels=unseen_labels, model=model, name="sigular_separate", args=args)
-    plot_overall_distribution(np.repeat(test, 2, axis=0), test_labels, skip_labels=unseen_labels, model=model, name="singular_together", args=args)
+    print("Plot Latent Testing Distribution for Singular Labels\n")
+    plot_labels = np.append(test_labels, unseen_labels, axis=0)
+
+    data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
+    skip = labels["unseen"]
+    plot_separate_distributions(data, plot_labels, skip_labels=skip, model=model, name="singular_separate", args=args)
+    plot_overall_distribution(data, plot_labels, skip_labels=skip, model=model, name="singular_together", args=args)
+
+    # all test datapoints + unseen datapoints
+    print("Plot Latent Testing + Unseen Distribution\n")
+    skip = []
+    plot_separate_distributions(data, plot_labels, skip_labels=skip, model=model, name="singular_separate_unseen", args=args)
+    plot_overall_distribution(data, plot_labels, skip_labels=skip, model=model, name="singular_together_unseen", args=args)
 
     if args.labels == "composite":
         print("Plot Latent Testing Distribution for Composite Labels\n")
+        # compose the composite labels
         test_labels = np.append(test_labels, unseen_labels, axis=0)
-        test_labels = test_labels.reshape(len(test_labels) / 2, 2)
-        test_labels = np.array(["_".join(x) for x in test_labels])
-        plot_separate_distributions(test, test_labels, skip_labels=unseen_labels, model=model, name="composite_separate", args=args)
-        plot_overall_distribution(test, test_labels, skip_labels=unseen_labels, model=model, name="composite_together", args=args)
+        test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
+        plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
+        data = np.append(test, unseen, axis=0)
+        skip = os.listdir("data/dSprites/unseen")
+        plot_separate_distributions(data, plot_labels, skip_labels=skip, model=model, name="composite_separate", args=args)
+        plot_overall_distribution(data, plot_labels, skip_labels=skip, model=model, name="composite_together", args=args)
 
-    # print("Plot Latent Testing + Unseen Distribution\n")
-    # # all test datapoints + unseen datapoints
-    # test = np.append(test, unseen, axis=0)
-    # plot_separate_distributions(test, test_labels, skip_labels=[], model=model, name="a_separate_unseen", args=args)
+        # all test datapoints + unseen datapoints
+        print("Plot Latent Testing for Composite Labels + Unseen Distribution\n")
+
+        skip = []
+        plot_separate_distributions(data, plot_labels, skip_labels=skip, model=model, name="composite_separate_unseen", args=args)
+        plot_overall_distribution(data, plot_labels, skip_labels=skip, model=model, name="composite_together_unseen", args=args)
+
 
     # visualise the learnt data manifold in the latent space
     print("Plot Reconstructed images sampeld from a standart Normal\n")
@@ -309,7 +331,7 @@ def compare_labels(test, test_labels, model, args, cuttoff_thresh=1):
     elif args.labels == "singular":
         hat_labels = model.predict_label(mu, ln_var, softmax=True)
 
-        print("\nValidation Accuracy: {0}\n".format(F.accuracy(hat_labels, test_labels)))
+        print("Validation Accuracy: {0}\n".format(F.accuracy(hat_labels, test_labels)))
 
 
 # Visualize the results
@@ -329,27 +351,27 @@ def save_images(x, filename, args):
             xi = xi.reshape(xi.shape[:-1])
 
         image = ai.imshow(cv2.cvtColor(xi, cv2.COLOR_BGR2RGB))
-    # plt.colorbar(image)
     fig.savefig(filename)
 
 
 # plot a set of input datapoitns to the latent space and fit a normal distribution over the projections
-def plot_overall_distribution(test, test_labels, skip_labels, model, name, args):
+# show the contours for the overall data distribution
+def plot_overall_distribution(data, labels, skip_labels, model, name, args):
     latent_all = None
 
     colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral']
 
     # scatter plot all the data points in the latent space
     plt.figure(figsize=(6, 6))
-    concise_colors = list(set(test_labels))
-    test_labels = test_labels.tolist()
-    for label in set(test_labels):
+    concise_colors = list(set(labels))
+    labels = labels.tolist()
+    for label in set(labels):
         # keep the color order between plot_overall_distribution and plot_separate_distributions 
         if label in skip_labels:
             continue
-        indecies = [i for i, x in enumerate(test_labels) if x == label]
-        filtered_test = chainer.Variable(test.take(indecies, axis=0))
-        latent = model.get_latent(filtered_test)
+        indecies = [i for i, x in enumerate(labels) if x == label]
+        filtered_data = chainer.Variable(data.take(indecies, axis=0))
+        latent = model.get_latent(filtered_data)
         latent = latent.data
         plt.scatter(latent[:, 0], latent[:, 1], c=colors[concise_colors.index(label)], label=str(label))
 
@@ -362,6 +384,7 @@ def plot_overall_distribution(test, test_labels, skip_labels, model, name, args)
 
     plt.plot([-5, 5], [0, 0], 'r')
     plt.plot([0, 0], [-5, 5], 'r')
+    plt.grid()
     plt.savefig(os.path.join(args.out, name))
     
     # fit a distribution over all the latent projections
@@ -379,21 +402,22 @@ def plot_overall_distribution(test, test_labels, skip_labels, model, name, args)
 
 
 # plot a set of input datapoitns to the latent space and fit normal distributions over the projections
-def plot_separate_distributions(test, test_labels, skip_labels, model, name, args):
+# show the contours for the distribution for each label
+def plot_separate_distributions(data, labels, skip_labels, model, name, args):
     latent_all = []
 
     colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'lime', 'maroon', 'salmon']
     colors_dist = ['maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral', 'k', 'c', 'b']
     # fit a distribution over the latent projections for each label
     plt.figure(figsize=(6, 6))
-    concise_colors = list(set(test_labels))
-    test_labels = test_labels.tolist()
-    for label in set(test_labels):
+    concise_colors = list(set(labels))
+    labels = labels.tolist()
+    for label in set(labels):
         if label in skip_labels:
             continue
-        indecies = [i for i, x in enumerate(test_labels) if x == label]
-        filtered_test = chainer.Variable(test.take(indecies, axis=0))
-        latent = model.get_latent(filtered_test)
+        indecies = [i for i, x in enumerate(labels) if x == label]
+        filtered_data = chainer.Variable(data.take(indecies, axis=0))
+        latent = model.get_latent(filtered_data)
         latent = latent.data
         latent_all.append(latent)
         plt.scatter(latent[:, 0], latent[:, 1], c=colors[concise_colors.index(label)], label=str(label))
@@ -401,16 +425,13 @@ def plot_separate_distributions(test, test_labels, skip_labels, model, name, arg
 
     plt.plot([-5, 5], [0, 0], 'r')
     plt.plot([0, 0], [-5, 5], 'r')
+    plt.grid()
     plt.savefig(os.path.join(args.out, name))
 
     counter = 0
-    for label in set(test_labels):
+    for label in set(labels):
         if label in skip_labels:
             continue
-        # indecies = [i for i, x in enumerate(test_labels) if x == label]
-        # filtered_test = chainer.Variable(test.take(indecies, axis=0))
-        # latent = model.get_latent(filtered_test)
-        # latent = latent.data
         latent = latent_all[counter]
         counter += 1
 
@@ -432,7 +453,7 @@ def plot_separate_distributions(test, test_labels, skip_labels, model, name, arg
 
 
     counter = 0
-    for label in set(test_labels):
+    for label in set(labels):
         plt.figure(figsize=(6, 6))
         if label in skip_labels:
             continue
@@ -452,6 +473,7 @@ def plot_separate_distributions(test, test_labels, skip_labels, model, name, arg
 
         plt.plot([-5, 5], [0, 0], 'r')
         plt.plot([0, 0], [-5, 5], 'r')
+        plt.grid()
         plt.savefig(os.path.join(args.out, name + "_overlayed" + "_" + str(counter)))
         plt.close()
         counter += 1
@@ -475,16 +497,11 @@ def plot_sampled_images(model, samples_per_dimension=10, image_size=100, offset=
         grid_x = norm.ppf(np.linspace(0.95, 0.05, samples_per_dimension))
         grid_y = norm.ppf(np.linspace(0.05, 0.95, samples_per_dimension))
 
-        # print("SAMPLES:\n")
-
         for i, yi in enumerate(grid_x):
             for j, xi in enumerate(grid_y):
                 z_sample = np.array([[xi, yi]]).astype(np.float32)
                 x_decoded = model.decode(chainer.Variable(z_sample)).data
                 image_sample = x_decoded.reshape(x_decoded.shape[1:])
-
-                # print("Min: {0} \t Max: {1} \t Mean: {2}".format(np.min(image_sample), np.max(image_sample), np.mean(image_sample)))
-
 
                 # if the network is conv it already outputs reshaped images; only has to swap the channels to be at the back
                 if args.model == "conv":

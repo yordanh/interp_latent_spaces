@@ -73,7 +73,7 @@ def extract(folder_name=None, labels=None, args=None, latent_spec=None, cutoff=N
 	print(label_counters)
 
 
-def extract_label_groups(label_groups, args, unseen=None):
+def extract_label_groups(label_groups=None, unseen=None, folder_name=None, args=None):
 	# build up the labels for all objects - take the combinations of the
 	# lists in label_groups; color is a special case, since we add it - it is
 	# not part of the given latent factors of variation
@@ -183,7 +183,7 @@ if __name__ == "__main__":
 	prep_dir(folder_name)
 
 	specs = config_parser.parse_specs()
-	
-	extract_label_groups(specs["train"], args)
+
+	extract_label_groups(label_groups=specs["train"], folder_name=folder_name+"train/", args=args)
 	for unseen_spec in specs["unseen"]:
-		extract_label_groups(unseen_spec[1], args, unseen=unseen_spec[0])
+		extract_label_groups(label_groups=unseen_spec[1], unseen=unseen_spec[0], folder_name=folder_name+"unseen/", args=args)
