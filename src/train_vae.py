@@ -25,7 +25,7 @@ from utils import *
 
 def main():
     parser = argparse.ArgumentParser(description='Chainer example: VAE')
-    parser.add_argument('--gpu', '-g', default=0, type=int,
+    parser.add_argument('--gpu', default=0, type=int,
                         help='GPU ID (negative value indicates CPU)')
     parser.add_argument('--out', '-o', default='result/',
                         help='Directory to output the result')
@@ -39,8 +39,10 @@ def main():
                         help='Name of the dataset to be used for experiments')
     parser.add_argument('--model', '-m', default='conv',
                         help='Convolutional or linear model')
-    parser.add_argument('--beta', '-b', default=1,
-                        help='Beta coefficient for the loss')
+    parser.add_argument('--beta', '-b', default=100,
+                        help='Beta coefficient for the KL loss')
+    parser.add_argument('--gamma', '-g', default=100000,
+                        help='Gamma coefficient for the classification loss')
     parser.add_argument('--labels', '-l', default="singular", 
                         help='Determined how to treat the labels for the different images')
     args = parser.parse_args()
@@ -71,8 +73,6 @@ def main():
     print('###############################################\n')
 
     stats = {'train_loss': [], 'train_accs': [], 'valid_loss': [], 'valid_rec_loss': [], 'valid_label_loss': [], 'valid_label_acc': [], 'valid_kl': []}
-    label_to_color = {}
-
 
     train_iter = chainer.iterators.SerialIterator(train_concat, args.batchsize)
     test_iter = chainer.iterators.SerialIterator(test_concat, args.batchsize,

@@ -83,12 +83,13 @@ class VAE(chainer.Chain):
 class Conv_VAE(chainer.Chain):
     """Convolutional Variational AutoEncoder"""
 
-    def __init__(self, in_channels, n_latent, groups, beta=1):
+    def __init__(self, in_channels, n_latent, groups, beta=100, gamma=100000):
         super(Conv_VAE, self).__init__()
         with self.init_scope():
 
             self.in_channels = in_channels
             self.beta = beta
+            self.gamma = gamma
             self.groups = groups
 
             # encoder
@@ -226,7 +227,7 @@ class Conv_VAE(chainer.Chain):
                 label_loss += F.softmax_cross_entropy(out_labels_1, in_labels_1) / (k * batchsize)
 
             self.rec_loss = rec_loss
-            self.label_loss = 100000 * label_loss
+            self.label_loss = self.gamma * label_loss
             self.label_acc = label_acc
 
             kl = gaussian_kl_divergence(mu, ln_var) / (batchsize)
