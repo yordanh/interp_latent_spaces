@@ -33,7 +33,6 @@ def extract(folder_name=None, labels=None, args=None, latent_spec=None, cutoff=N
 
 	print("Extracting images for " + folder_name + str(labels))
 	indecies = []
-	bgr_color = latent_spec['color']
 	for i, c in enumerate(data['latents_classes']):
 		if (c[1] in latent_spec['shape'] and
 		    c[2] in latent_spec['scale'] and 
@@ -49,22 +48,23 @@ def extract(folder_name=None, labels=None, args=None, latent_spec=None, cutoff=N
 			break
 
 		image = cv2.resize(image, (image_size, image_size))
-		image = numpy.tile(image.reshape(image_size,image_size,1), (1, 1, 3)) * bgr_color
-		
-		# singular labels
-		if args.labels == "singular":
-			for label in labels:
-				cv2.imwrite(folder_name + label + "/" + str(label_counters[label]) + ".png", image)
-				label_counters[label] += 1
+		for bgr_color in latent_spec["color"]:
+			image_out = numpy.tile(image.reshape(image_size,image_size,1), (1, 1, 3)) * bgr_color
+			
+			# singular labels
+			if args.labels == "singular":
+				for label in labels:
+					cv2.imwrite(folder_name + label + "/" + str(label_counters[label]) + ".png", image_out)
+					label_counters[label] += 1
 
-		# # composite labels
-		elif args.labels == "composite":
-			object_folder_name = folder_name + "_".join(labels) + "/"		
-			cv2.imwrite(object_folder_name + "/" + str(i) + ".png", image)
-			label_counters["_".join(labels)] += 1
+			# # composite labels
+			elif args.labels == "composite":
+				object_folder_name = folder_name + "_".join(labels) + "/"		
+				cv2.imwrite(object_folder_name + "/" + str(label_counters["_".join(labels)]) + ".png", image_out)
+				label_counters["_".join(labels)] += 1
 
 		if verbose:
-			cv2.imshow("image", image)
+			cv2.imshow("image", image_out)
 			cv2.waitKey()
 		
 		if i % 100 == 0:
@@ -105,7 +105,6 @@ def extract_label_groups(label_groups=None, unseen=None, folder_name=None, args=
 	# # export in the relevant folders
 	elif args.labels == "composite":
 		for labels in object_labels:
-			# for label in labels:
 			object_folder_name = folder_name + "_".join(labels) + "/"
 			os.makedirs(object_folder_name)
 			revised_latent_spec = revise_latent_spec(copy.deepcopy(latent_spec), labels, mappings)
@@ -116,6 +115,15 @@ def extract_label_groups(label_groups=None, unseen=None, folder_name=None, args=
 # given labels; we know what labels map to what classes
 # across the different factors of variation
 def revise_latent_spec(latent_spec, label, mappings):
+
+	# color is special because it is added by us and if it is not a label
+	# it won't be mapped to the necessary values
+	# therefore we preemptively map it to an array of numeric values here 
+	# and if it ends up being a label we map it again to a single value after that
+	colors = latent_spec["color"]
+	latent_spec["color"] = []
+	for color in colors:
+		latent_spec["color"].append(mappings["color"][color])
 	
 	mappings_keys = mappings.keys()
 

@@ -55,7 +55,7 @@ def main():
     print('# Dataset: \t\t{}'.format(args.data))
     print('# Model Architecture: \t{}'.format(args.model))
     print('# Beta: \t\t{}'.format(args.beta))
-    # print('# Training Mode: \t{}'.format(args.mode))
+    print('# Gamma: \t\t{}'.format(args.gamma))
     print('# Out Folder: \t\t{}'.format(args.out))
     print('###############################################\n')
 
@@ -81,7 +81,7 @@ def main():
     # Prepare VAE model, defined in net.py
     if args.model == "conv":
         if args.data == "sprites":
-            model = net.Conv_VAE(train.shape[1], n_latent=args.dimz, groups=groups, beta=args.beta)
+            model = net.Conv_VAE(train.shape[1], n_latent=args.dimz, groups=groups, beta=args.beta, gamma=args.gamma)
         else:
             model = net.Conv_VAE_MNIST(train.shape[1], args.dimz, beta=args.beta)
     else:
