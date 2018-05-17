@@ -44,8 +44,6 @@ class DataGenerator(object):
             config_parser = ConfigParser("config/config.json")
             labels = config_parser.parse_labels()
             groups = config_parser.parse_groups()
-            # folders_for_training = labels["train"]
-            # folders_for_unseen = labels["unseen"]
 
             train = []
             train_labels = []
@@ -64,45 +62,44 @@ class DataGenerator(object):
             # print(folder_list_train)
             # print(folder_list_unseen)
 
-
             # big, blue, flat are 3 folders with overlapping images
             if args.labels == "singular":
                 for folder in folder_list_train:
                     image_list = os.listdir(folder_name+folder)
                     number_of_images = len(image_list)
-                    index = folder_list_train.index(folder)
+                    train_n = int(data_split * number_of_images)
+                    test_n = number_of_images - train_n
+                    unseen_n = test_n
+                    train_indecies = np.random.choice(range(number_of_images), int(data_split * number_of_images), replace=False)
+                    test_indecies = filter(lambda x : x not in train_indecies, range(number_of_images))
 
                     print("Processing TRAINING folder {0}/{1} with {2} images".format(folder_list_train.index(folder), 
                                                                              len(folder_list_train), 
                                                                              len(image_list)))
 
                     if folder in folders_for_training:
-                        for image_name in image_list[0:int(data_split * number_of_images)]:
+                        for image_name in np.take(image_list, train_indecies, axis=0):
                                 train.append(cv2.imread(folder_name+folder+"/"+image_name, 1))
-                        train_labels += [folder] * (int(data_split * number_of_images))
-                        n = int(data_split * number_of_images)
-                        train_vectors += list(np.tile(folders_for_training.index(folder), (n)))
+                        train_labels += [folder] * test_n
+                        train_vectors += list(np.tile(folders_for_training.index(folder), (train_n)))
 
-                        for image_name in image_list[int(data_split * number_of_images):]:
+                        for image_name in np.take(image_list, test_indecies, axis=0):
                             test.append(cv2.imread(folder_name+folder+"/"+image_name, 1))#
-                        test_labels += [folder] * (number_of_images - int(data_split * number_of_images))
-                        n = number_of_images - int(data_split * number_of_images)
-                        test_vectors += list(np.tile(folders_for_training.index(folder), (n)))
+                        test_labels += [folder] * test_n
+                        test_vectors += list(np.tile(folders_for_training.index(folder), (test_n)))
 
                 for folder in folder_list_unseen:
                     image_list = os.listdir(folder_name_unseen+folder)
                     number_of_images = len(image_list)
-                    index = folder_list_unseen.index(folder)
 
                     print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
                                                                              len(folder_list_unseen), 
                                                                              len(image_list)))
 
-                    for image_name in image_list[int(data_split * number_of_images):]:
-                        unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))#
-                    unseen_labels += [folder] * (number_of_images - int(data_split * number_of_images))
-                    n = number_of_images - int(data_split * number_of_images)
-                    unseen_vectors += list(np.tile(folders_for_unseen.index(folder), (n)))
+                    for image_name in np.take(image_list, test_indecies, axis=0):
+                        unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))
+                    unseen_labels += [folder] * unseen_n
+                    unseen_vectors += list(np.tile(folders_for_unseen.index(folder), (unseen_n)))
             
             # big_blue_flat is one folder with unique images
             elif args.labels == "composite":
@@ -115,53 +112,53 @@ class DataGenerator(object):
                 for folder in folder_list_train:
                     image_list = os.listdir(folder_name_train+folder)
                     number_of_images = len(image_list)
-                    index = folder_list_train.index(folder)
+                    train_n = int(data_split * number_of_images)
+                    test_n = number_of_images - train_n
+                    unseen_n = test_n
+                    train_indecies = np.random.choice(range(number_of_images), train_n, replace=False)
+                    test_indecies = filter(lambda x : x not in train_indecies, range(number_of_images))
 
                     print("Processing TRAINING folder {0}/{1} with {2} images".format(folder_list_train.index(folder), 
                                                                              len(folder_list_train), 
                                                                              len(image_list)))
 
-                    for image_name in image_list[0:int(data_split * number_of_images)]:
+                    for image_name in np.take(image_list, train_indecies, axis=0):
                             train.append(cv2.imread(folder_name_train+folder+"/"+image_name, 1))
 
-                    train_labels += folder.split('_') * (int(data_split * number_of_images))
+                    train_labels += folder.split('_') * train_n
 
-                    n = int(data_split * number_of_images)
                     for i, group in enumerate(groups):
                         label = filter(lambda x : x in groups[str(i)], folder.split('_'))
                         label = label[0]
-                        train_vectors[i] += list(np.tile(groups[str(i)].index(label), (n)))
+                        train_vectors[i] += list(np.tile(groups[str(i)].index(label), (train_n)))
 
-                    for image_name in image_list[int(data_split * number_of_images):]:
+                    for image_name in np.take(image_list, test_indecies, axis=0):
                         test.append(cv2.imread(folder_name_train+folder+"/"+image_name, 1))
 
-                    test_labels += folder.split('_') * (number_of_images - int(data_split * number_of_images))
+                    test_labels += folder.split('_') * test_n
 
-                    n = number_of_images - int(data_split * number_of_images)
                     for i, group in enumerate(groups):
                         label = filter(lambda x : x in groups[str(i)], folder.split('_'))
                         label = label[0]
-                        test_vectors[i] += list(np.tile(groups[str(i)].index(label), (n)))
+                        test_vectors[i] += list(np.tile(groups[str(i)].index(label), (test_n)))
 
                 for folder in folder_list_unseen:
                     image_list = os.listdir(folder_name_unseen+folder)
                     number_of_images = len(image_list)
-                    index = folder_list_unseen.index(folder)
 
                     print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
                                                                              len(folder_list_unseen), 
                                                                              len(image_list)))
 
-                    for image_name in image_list[int(data_split * number_of_images):]:
+                    for image_name in np.take(image_list, test_indecies, axis=0):
                         unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))#
                     
-                    unseen_labels += folder.split('_') * (number_of_images - int(data_split * number_of_images))
+                    unseen_labels += folder.split('_') * unseen_n
 
-                    n = number_of_images - int(data_split * number_of_images)
                     for i, group in enumerate(groups):   
                         label = filter(lambda x : x in groups[str(i)], folder.split('_'))
                         label = label[0]
-                        unseen_vectors[i] += list(np.tile(groups[str(i)].index(label), (n)))
+                        unseen_vectors[i] += list(np.tile(groups[str(i)].index(label), (unseen_n)))
 
             # print("Train Vectors: {}".format(np.array(train_vectors)))
             # print("Train Labels: {}".format(np.array(train_labels)))
