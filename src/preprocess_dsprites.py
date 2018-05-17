@@ -73,7 +73,7 @@ def extract(folder_name=None, labels=None, args=None, latent_spec=None, cutoff=N
 	print(label_counters)
 
 
-def extract_label_groups(label_groups=None, unseen=None, folder_name=None, args=None):
+def extract_label_groups(label_groups=None, unseen=None, latent_spec=None, mappings=None, folder_name=None, args=None):
 	# build up the labels for all objects - take the combinations of the
 	# lists in label_groups; color is a special case, since we add it - it is
 	# not part of the given latent factors of variation
@@ -182,9 +182,9 @@ if __name__ == "__main__":
 	latent_spec = {'color': ['white', 'red', 'yellow', 'green', 'blue', 'pink'],
 				   'shape': [0],#range(3),
 				   'scale': range(6),
-				   'orientation': range(40),
-				   'x': [15, 16],
-				   'y': [15, 16]}
+				   'orientation': [0,10,20,39,4,14,24,34],
+				   'x': [13, 14, 15, 16, 17],
+				   'y': [13, 14, 15, 16, 17]}
 
 	# delete any previous object folders
 	folder_name = "data/dSprites/"
@@ -192,6 +192,6 @@ if __name__ == "__main__":
 
 	specs = config_parser.parse_specs()
 
-	extract_label_groups(label_groups=specs["train"], folder_name=folder_name+"train/", args=args)
+	extract_label_groups(label_groups=specs["train"], folder_name=folder_name+"train/", latent_spec=latent_spec, mappings=mappings, args=args)
 	for unseen_spec in specs["unseen"]:
-		extract_label_groups(label_groups=unseen_spec[1], unseen=unseen_spec[0], folder_name=folder_name+"unseen/", args=args)
+		extract_label_groups(label_groups=unseen_spec[1], unseen=unseen_spec[0], folder_name=folder_name+"unseen/", latent_spec=latent_spec, mappings=mappings, args=args)
