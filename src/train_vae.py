@@ -176,12 +176,17 @@ def main():
 ########### RESULTS ANALYSIS ###########
 ########################################
 
+    model.to_cpu()  
+
     config_parser = ConfigParser("config/config.json")
-    labels = config_parser.parse_labels()
     all_labels = np.append(test_labels, unseen_labels, axis=0)
     colors = attach_colors(all_labels)
 
-    model.to_cpu()  
+    latent = model.get_latent(test).data
+    mean = np.mean(latent, axis=0)
+    cov = np.cov(latent.T)
+    no_std = 2
+    boundaries = np.array([mean - no_std*cov.diagonal(), mean + no_std*cov.diagonal()])
 
     print("Clear Images from Last experiment\n")
     clear_last_results(args.out)
@@ -198,14 +203,14 @@ def main():
     print("Plot Latent Testing Distribution for Singular Labels\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
     plot_labels = test_labels
-    plot_separate_distributions(data, plot_labels, colors=colors["singular"], model=model, name="singular_separate", args=args)
-    plot_overall_distribution(data, plot_labels, colors=colors["singular"], model=model, name="singular_together", args=args)
+    plot_separate_distributions(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate", args=args)
+    plot_overall_distribution(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_together", args=args)
 
     print("Plot Latent Testing + Unseen Distribution\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
     plot_labels = np.append(test_labels, unseen_labels, axis=0)
-    plot_separate_distributions(data, plot_labels, colors=colors["singular"], model=model, name="singular_separate_unseen", args=args)
-    plot_overall_distribution(data, plot_labels, colors=colors["singular"], model=model, name="singular_together_unseen", args=args)
+    plot_separate_distributions(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate_unseen", args=args)
+    plot_overall_distribution(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_together_unseen", args=args)
 
     if args.labels == "composite":
         print("Plot Latent Testing Distribution for Composite Labels\n")
@@ -213,21 +218,21 @@ def main():
         test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
         plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
         data = test
-        plot_separate_distributions(data, plot_labels, colors=colors["composite"], model=model, name="composite_separate", args=args)
-        plot_overall_distribution(data, plot_labels, colors=colors["composite"], model=model, name="composite_together", args=args)
+        plot_separate_distributions(data, plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_separate", args=args)
+        plot_overall_distribution(data, plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_together", args=args)
 
         print("Plot Latent Testing for Composite Labels + Unseen Distribution\n")
         test_labels = np.append(test_labels, unseen_labels, axis=0)
         test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
         plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
         data = np.append(test, unseen, axis=0)
-        plot_separate_distributions(data, plot_labels, colors=colors["composite"], model=model, name="composite_separate_unseen", args=args)
-        plot_overall_distribution(data, plot_labels, colors=colors["composite"], model=model, name="composite_together_unseen", args=args)
+        plot_separate_distributions(data, plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_separate_unseen", args=args)
+        plot_overall_distribution(data, plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_together_unseen", args=args)
 
 
     # visualise the learnt data manifold in the latent space
     print("Plot Reconstructed images sampeld from a standart Normal\n")
-    plot_sampled_images(model, image_size=data_dimensions[-1], image_channels=data_dimensions[1], args=args)
+    plot_sampled_images(model, data, boundaries=boundaries, image_size=data_dimensions[-1], image_channels=data_dimensions[1], args=args)
 
 if __name__ == '__main__':
     main()

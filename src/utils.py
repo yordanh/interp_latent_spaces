@@ -168,7 +168,7 @@ def attach_colors(labels, composite=True):
 
 # plot a set of input datapoitns to the latent space and fit a normal distribution over the projections
 # show the contours for the overall data distribution
-def plot_overall_distribution(data, labels, colors, model, name, args):
+def plot_overall_distribution(data, labels, boundaries, colors, model, name, args):
     latent_all = None
 
     # scatter plot all the data points in the latent space
@@ -187,8 +187,17 @@ def plot_overall_distribution(data, labels, colors, model, name, args):
         else:
             latent_all = latent
     plt.legend(loc='upper right')
-    plt.plot([-5, 5], [0, 0], 'r')
-    plt.plot([0, 0], [-5, 5], 'r')
+
+    # plot bounding box for the visualised manifold
+    # boundaries are [[min_x, min_y],[max_x, max_y]]
+    plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[0,1], boundaries[0,1]], 'r') # top line
+    plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[1,1], boundaries[1,1]], 'r') # bottom line
+    plt.plot([boundaries[0,0], boundaries[0,0]], [boundaries[0,1], boundaries[1,1]], 'r') # left line
+    plt.plot([boundaries[1,0], boundaries[1,0]], [boundaries[0,1], boundaries[1,1]], 'r') # right line
+    # major axes
+    plt.plot([boundaries[0,0], boundaries[1,0]], [0,0], 'k')
+    plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
+
     plt.grid()
     plt.savefig(os.path.join(args.out, name))
     
@@ -208,7 +217,7 @@ def plot_overall_distribution(data, labels, colors, model, name, args):
 
 # plot a set of input datapoitns to the latent space and fit normal distributions over the projections
 # show the contours for the distribution for each label
-def plot_separate_distributions(data, labels, colors, model, name, args):
+def plot_separate_distributions(data, labels, boundaries, colors, model, name, args):
     latent_all = []
 
     # scatter plot all the data points in the latent space
@@ -222,8 +231,17 @@ def plot_separate_distributions(data, labels, colors, model, name, args):
         latent_all.append(latent)
         plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label))
     plt.legend(loc='upper right')
-    plt.plot([-5, 5], [0, 0], 'r')
-    plt.plot([0, 0], [-5, 5], 'r')
+
+    # plot bounding box for the visualised manifold
+    # boundaries are [[min_x, min_y],[max_x, max_y]]
+    plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[0,1], boundaries[0,1]], 'r') # top line
+    plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[1,1], boundaries[1,1]], 'r') # bottom line
+    plt.plot([boundaries[0,0], boundaries[0,0]], [boundaries[0,1], boundaries[1,1]], 'r') # left line
+    plt.plot([boundaries[1,0], boundaries[1,0]], [boundaries[0,1], boundaries[1,1]], 'r') # right line
+    # major axes
+    plt.plot([boundaries[0,0], boundaries[1,0]], [0,0], 'k')
+    plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
+
     plt.grid()
     plt.savefig(os.path.join(args.out, name))
 
@@ -242,8 +260,6 @@ def plot_separate_distributions(data, labels, colors, model, name, args):
         Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
         plt.contour(X, Y, Z, colors=colors[label]["dist"])
     plt.legend(loc='upper right')
-    plt.plot([-5, 5], [0, 0], 'r')
-    plt.plot([0, 0], [-5, 5], 'r')
     plt.savefig(os.path.join(args.out, name + "_overlayed"))
     plt.close()
 
@@ -263,17 +279,29 @@ def plot_separate_distributions(data, labels, colors, model, name, args):
         Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
         plt.contour(X, Y, Z, colors=colors[label]["dist"])
         plt.legend(loc='upper right')
-        plt.plot([-5, 5], [0, 0], 'r')
-        plt.plot([0, 0], [-5, 5], 'r')
+
+        # plot bounding box for the visualised manifold
+        # boundaries are [[min_x, min_y],[max_x, max_y]]
+        plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[0,1], boundaries[0,1]], 'r') # top line
+        plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[1,1], boundaries[1,1]], 'r') # bottom line
+        plt.plot([boundaries[0,0], boundaries[0,0]], [boundaries[0,1], boundaries[1,1]], 'r') # left line
+        plt.plot([boundaries[1,0], boundaries[1,0]], [boundaries[0,1], boundaries[1,1]], 'r') # right line
+        # major axes
+        plt.plot([boundaries[0,0], boundaries[1,0]], [0,0], 'k')
+        plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
+
         plt.grid()
         plt.savefig(os.path.join(args.out, name + "_overlayed" + "_" + str(counter)))
         plt.close()
         counter += 1
 
 # sample datapoints under the prior normal distribution and reconstruct
-def plot_sampled_images(model, samples_per_dimension=10, image_size=100, offset=10, image_channels=3, args=None):
+# samples_per_dimension has to be even
+def plot_sampled_images(model, data, boundaries=None, samples_per_dimension=16, image_size=100, offset=10, image_channels=3, args=None):
 
-        figure = np.ones((image_size * samples_per_dimension + offset * samples_per_dimension, image_size * samples_per_dimension + offset * samples_per_dimension, image_channels))
+        rows = image_size * samples_per_dimension + offset * samples_per_dimension
+        columns = image_size * samples_per_dimension + offset * samples_per_dimension
+        figure = np.ones((rows, columns, image_channels))
         # major axes
         if image_channels == 1:
             line_pixel = [1]
@@ -286,8 +314,8 @@ def plot_sampled_images(model, samples_per_dimension=10, image_size=100, offset=
         # linearly spaced coordinates on the unit square were transformed through the inverse CDF (ppf) of the Gaussian
         # to produce values of the latent variables z, since the prior of the latent space is Gaussian
         # x and y are sptlit because of the way open cv has its axes
-        grid_x = norm.ppf(np.linspace(0.95, 0.05, samples_per_dimension))
-        grid_y = norm.ppf(np.linspace(0.05, 0.95, samples_per_dimension))
+        grid_x = np.linspace(boundaries[0,0], boundaries[1,0], samples_per_dimension)
+        grid_y = np.linspace(boundaries[0,1], boundaries[1,1], samples_per_dimension)
 
         for i, yi in enumerate(grid_x):
             for j, xi in enumerate(grid_y):
