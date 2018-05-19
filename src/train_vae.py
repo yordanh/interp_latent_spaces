@@ -31,7 +31,7 @@ def main():
                         help='Directory to output the result')
     parser.add_argument('--epoch', '-e', default=100, type=int,
                         help='number of epochs to learn')
-    parser.add_argument('--dimz', '-z', default=20, type=int,
+    parser.add_argument('--dimz', '-z', default=2, type=int,
                         help='dimention of encoded vector')
     parser.add_argument('--batchsize', '-batch', type=int, default=128,
                         help='learning minibatch size')
@@ -43,7 +43,7 @@ def main():
                         help='Beta coefficient for the KL loss')
     parser.add_argument('--gamma', '-g', default=100000,
                         help='Gamma coefficient for the classification loss')
-    parser.add_argument('--labels', '-l', default="singular", 
+    parser.add_argument('--labels', '-l', default="composite", 
                         help='Determined how to treat the labels for the different images')
     args = parser.parse_args()
 
