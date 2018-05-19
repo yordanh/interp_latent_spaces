@@ -7,6 +7,7 @@ import numpy as np
 from scipy.stats import multivariate_normal
 import cv2
 from scipy.stats import norm
+from math import sqrt
 
 import matplotlib
 matplotlib.use('agg')
@@ -24,41 +25,42 @@ def clear_last_results(folder_name):
 
 # for a given set of example images, calculate their reconstructions
 def perform_reconstructions(model, train, test, unseen, args):
-    train_ind = np.linspace(0, len(train) - 1, 9, dtype=int)
+    no_images = 16
+    train_ind = np.linspace(0, len(train) - 1, no_images, dtype=int)
     x = chainer.Variable(np.asarray(train[train_ind]))
     with chainer.using_config('train', False), chainer.no_backprop_mode():
         x1 = model(x)
-    save_images(x.data, os.path.join(args.out, 'train'), args=args)
-    save_images(x1.data, os.path.join(args.out, 'train_reconstructed'), args=args)
+    save_images(x.data, no_images, os.path.join(args.out, 'train'), args=args)
+    save_images(x1.data, no_images, os.path.join(args.out, 'train_reconstructed'), args=args)
 
     # reconstruct testing examples
-    test_ind = np.linspace(0, len(test) - 1, 9, dtype=int)
+    test_ind = np.linspace(0, len(test) - 1, no_images, dtype=int)
     x = chainer.Variable(np.asarray(test[test_ind]))
     with chainer.using_config('train', False), chainer.no_backprop_mode():
         x1 = model(x)
-    save_images(x.data, os.path.join(args.out, 'test'), args=args)
-    save_images(x1.data, os.path.join(args.out, 'test_reconstructed'), args=args)
+    save_images(x.data, no_images, os.path.join(args.out, 'test'), args=args)
+    save_images(x1.data, no_images, os.path.join(args.out, 'test_reconstructed'), args=args)
 
     # reconstruct unseen examples
     if len(unseen) != 0:
-        unseen_ind = np.linspace(0, len(unseen) - 1, 9, dtype=int)
+        unseen_ind = np.linspace(0, len(unseen) - 1, no_images, dtype=int)
         x = chainer.Variable(np.asarray(unseen[unseen_ind]))
         with chainer.using_config('train', False), chainer.no_backprop_mode():
             x1 = model(x)
-        save_images(x.data, os.path.join(args.out, 'unseen'), args=args)
-        save_images(x1.data, os.path.join(args.out, 'unseen_reconstructed'), args=args)
+        save_images(x.data, no_images, os.path.join(args.out, 'unseen'), args=args)
+        save_images(x1.data, no_images, os.path.join(args.out, 'unseen_reconstructed'), args=args)
 
     # draw images from randomly sampled z under a 'vanilla' normal distribution
     z = chainer.Variable(
-        np.random.normal(0, 1, (9, args.dimz)).astype(np.float32))
+        np.random.normal(0, 1, (no_images, args.dimz)).astype(np.float32))
     x = model.decode(z)
-    save_images(x.data, os.path.join(args.out, 'sampled'), args=args)
+    save_images(x.data, no_images, os.path.join(args.out, 'sampled'), args=args)
 
 
 # plot and save loss and accuracy curves
 def plot_loss_curves(stats, args):
     # overall train/validation losses
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(10, 10))
     plt.grid()
     colors = ['r', 'k', 'b', 'g', 'gold']
     for i, channel in enumerate(stats):
@@ -66,32 +68,32 @@ def plot_loss_curves(stats, args):
             continue
         plt.plot(range(args.epoch),stats[channel], marker='x', color=colors[i], label=channel)
     
-    plt.legend(loc="upper right")
-    plt.savefig(os.path.join(args.out + "losses"))
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.savefig(os.path.join(args.out + "losses"), bbox_inches="tight")
 
     # validation label loss
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(10, 10))
     plt.grid()
     plt.plot(range(args.epoch),stats['valid_label_loss'], marker='x', color='g', label='valid_label_loss')
     
-    plt.legend(loc="upper right")
-    plt.savefig(os.path.join(args.out + "label_loss"))
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.savefig(os.path.join(args.out + "label_loss"), bbox_inches="tight")
 
     # validation label accuracy
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(10, 10))
     plt.grid()
     plt.plot(range(args.epoch),stats['valid_label_acc'], marker='x', color='r', label='valid_label_acc')
     
-    plt.legend(loc="upper right")
-    plt.savefig(os.path.join(args.out + "label_acc"))
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.savefig(os.path.join(args.out + "label_acc"), bbox_inches="tight")
 
     # training label accuracy
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(10, 10))
     plt.grid()
     plt.plot(range(args.epoch),stats['train_accs'], marker='x', color='b', label='train_accs')
     
-    plt.legend(loc="upper right")
-    plt.savefig(os.path.join(args.out + "train_label_acc"))
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.savefig(os.path.join(args.out + "train_label_acc"), bbox_inches="tight")
 
     plt.close()
 
@@ -113,9 +115,9 @@ def compare_labels(test, test_labels, model, args, cuttoff_thresh=1):
 
 
 # visualize the results
-def save_images(x, filename, args):
+def save_images(x, no_images, filename, args):
 
-    fig, ax = plt.subplots(3, 3, figsize=(9, 9), dpi=100)
+    fig, ax = plt.subplots(int(sqrt(no_images)), int(sqrt(no_images)), figsize=(9, 9), dpi=100)
     for ai, xi in zip(ax.flatten(), x):
         if args.model == "conv":
             xi = np.swapaxes(xi, 0, 2)
@@ -136,7 +138,7 @@ def save_images(x, filename, args):
 # and fitted overlayed distributions
 def attach_colors(labels, composite=True):
 
-    colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral']
+    colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral', 'r', 'purple', 'olive', 'navy', 'yellowgreen', 'brown']
     result = {"singular":{}, "composite":{}}
 
     counter = 0
@@ -172,7 +174,7 @@ def plot_overall_distribution(data, labels, boundaries, colors, model, name, arg
     latent_all = None
 
     # scatter plot all the data points in the latent space
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(10, 10))
     concise_colors = list(set(labels))
     labels = labels.tolist()
     for label in set(labels):
@@ -180,13 +182,13 @@ def plot_overall_distribution(data, labels, boundaries, colors, model, name, arg
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
         latent = model.get_latent(filtered_data)
         latent = latent.data
-        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label))
+        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
 
         if latent_all is not None:
             latent_all = np.append(latent_all, latent, axis=0)
         else:
             latent_all = latent
-    plt.legend(loc='upper right')
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
     # plot bounding box for the visualised manifold
     # boundaries are [[min_x, min_y],[max_x, max_y]]
@@ -199,7 +201,7 @@ def plot_overall_distribution(data, labels, boundaries, colors, model, name, arg
     plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
 
     plt.grid()
-    plt.savefig(os.path.join(args.out, name))
+    plt.savefig(os.path.join(args.out, name), bbox_inches="tight")
     
     # fit and plot a distribution over all the latent projections
     delta = 0.025
@@ -211,7 +213,7 @@ def plot_overall_distribution(data, labels, boundaries, colors, model, name, arg
     Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
     plt.contour(X, Y, Z, colors='r')
     plt.title("mu[0]:{0}; mu[1]:{1}\ncov[0,0]:{2}; cov[1,1]:{3}\ncov[0,1]:{4}".format(round(mean[0],2), round(mean[1],2), round(cov[0,0],2), round(cov[1,1],2), round(cov[0,1],2)))
-    plt.savefig(os.path.join(args.out, name + "_overlayed"))
+    plt.savefig(os.path.join(args.out, name + "_overlayed"), bbox_inches="tight")
     plt.close()
 
 
@@ -221,7 +223,7 @@ def plot_separate_distributions(data, labels, boundaries, colors, model, name, a
     latent_all = []
 
     # scatter plot all the data points in the latent space
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(10, 10))
     labels = labels.tolist()
     for label in set(labels):
         indecies = [i for i, x in enumerate(labels) if x == label]
@@ -229,8 +231,8 @@ def plot_separate_distributions(data, labels, boundaries, colors, model, name, a
         latent = model.get_latent(filtered_data)
         latent = latent.data
         latent_all.append(latent)
-        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label))
-    plt.legend(loc='upper right')
+        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
     # plot bounding box for the visualised manifold
     # boundaries are [[min_x, min_y],[max_x, max_y]]
@@ -243,7 +245,7 @@ def plot_separate_distributions(data, labels, boundaries, colors, model, name, a
     plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
 
     plt.grid()
-    plt.savefig(os.path.join(args.out, name))
+    plt.savefig(os.path.join(args.out, name), bbox_inches="tight")
 
     # fit and overlay distributions for each class/label
     counter = 0
@@ -259,16 +261,16 @@ def plot_separate_distributions(data, labels, boundaries, colors, model, name, a
         X, Y = np.meshgrid(x, y)
         Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
         plt.contour(X, Y, Z, colors=colors[label]["dist"])
-    plt.legend(loc='upper right')
-    plt.savefig(os.path.join(args.out, name + "_overlayed"))
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    plt.savefig(os.path.join(args.out, name + "_overlayed"), bbox_inches="tight")
     plt.close()
 
     # scatter datapoints and fit and overlay a distribution over each data label
     counter = 0
     for label in set(labels):
-        plt.figure(figsize=(6, 6))
+        plt.figure(figsize=(10, 10))
         latent = latent_all[counter]
-        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label))
+        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
 
         delta = 0.025
         mean = np.mean(latent, axis=0)
@@ -278,7 +280,7 @@ def plot_separate_distributions(data, labels, boundaries, colors, model, name, a
         X, Y = np.meshgrid(x, y)
         Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
         plt.contour(X, Y, Z, colors=colors[label]["dist"])
-        plt.legend(loc='upper right')
+        plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
         # plot bounding box for the visualised manifold
         # boundaries are [[min_x, min_y],[max_x, max_y]]
@@ -291,7 +293,7 @@ def plot_separate_distributions(data, labels, boundaries, colors, model, name, a
         plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
 
         plt.grid()
-        plt.savefig(os.path.join(args.out, name + "_overlayed" + "_" + str(counter)))
+        plt.savefig(os.path.join(args.out, name + "_overlayed" + "_" + str(counter)), bbox_inches="tight")
         plt.close()
         counter += 1
 
@@ -314,7 +316,7 @@ def plot_sampled_images(model, data, boundaries=None, samples_per_dimension=16, 
         # linearly spaced coordinates on the unit square were transformed through the inverse CDF (ppf) of the Gaussian
         # to produce values of the latent variables z, since the prior of the latent space is Gaussian
         # x and y are sptlit because of the way open cv has its axes
-        grid_x = np.linspace(boundaries[0,0], boundaries[1,0], samples_per_dimension)
+        grid_x = np.linspace(boundaries[1,0], boundaries[0,0], samples_per_dimension)
         grid_y = np.linspace(boundaries[0,1], boundaries[1,1], samples_per_dimension)
 
         for i, yi in enumerate(grid_x):
