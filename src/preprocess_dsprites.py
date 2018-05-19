@@ -123,7 +123,7 @@ def revise_latent_spec(latent_spec, label, mappings):
 	colors = latent_spec["color"]
 	latent_spec["color"] = []
 	for color in colors:
-		latent_spec["color"].append(mappings["color"][color])
+		latent_spec["color"] += mappings["color"][color]
 	
 	mappings_keys = mappings.keys()
 
