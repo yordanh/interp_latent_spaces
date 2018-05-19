@@ -69,8 +69,7 @@ class DataGenerator(object):
                     number_of_images = len(image_list)
                     train_n = int(data_split * number_of_images)
                     test_n = number_of_images - train_n
-                    unseen_n = test_n
-                    train_indecies = np.random.choice(range(number_of_images), int(data_split * number_of_images), replace=False)
+                    train_indecies = np.random.choice(range(number_of_images), train_n, replace=False)
                     test_indecies = filter(lambda x : x not in train_indecies, range(number_of_images))
 
                     print("Processing TRAINING folder {0}/{1} with {2} images".format(folder_list_train.index(folder), 
@@ -91,12 +90,14 @@ class DataGenerator(object):
                 for folder in folder_list_unseen:
                     image_list = os.listdir(folder_name_unseen+folder)
                     number_of_images = len(image_list)
+                    unseen_n = test_n
+                    unseen_indecies = np.random.choice(range(number_of_images), unseen_n, replace=False)                    
 
                     print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
                                                                              len(folder_list_unseen), 
                                                                              len(image_list)))
 
-                    for image_name in np.take(image_list, test_indecies, axis=0):
+                    for image_name in np.take(image_list, unseen_indecies, axis=0):
                         unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))
                     unseen_labels += [folder] * unseen_n
                     unseen_vectors += list(np.tile(folders_for_unseen.index(folder), (unseen_n)))
@@ -114,7 +115,6 @@ class DataGenerator(object):
                     number_of_images = len(image_list)
                     train_n = int(data_split * number_of_images)
                     test_n = number_of_images - train_n
-                    unseen_n = test_n
                     train_indecies = np.random.choice(range(number_of_images), train_n, replace=False)
                     test_indecies = filter(lambda x : x not in train_indecies, range(number_of_images))
 
@@ -145,12 +145,14 @@ class DataGenerator(object):
                 for folder in folder_list_unseen:
                     image_list = os.listdir(folder_name_unseen+folder)
                     number_of_images = len(image_list)
+                    unseen_n = test_n
+                    unseen_indecies = np.random.choice(range(number_of_images), unseen_n, replace=False)                                        
 
                     print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
                                                                              len(folder_list_unseen), 
                                                                              len(image_list)))
 
-                    for image_name in np.take(image_list, test_indecies, axis=0):
+                    for image_name in np.take(image_list, unseen_indecies, axis=0):
                         unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))#
                     
                     unseen_labels += folder.split('_') * unseen_n
