@@ -181,21 +181,22 @@ def main():
     config_parser = ConfigParser("config/config.json")
     groups = config_parser.parse_groups()
 
-    unseen_labels_tmp = unseen_labels.reshape(len(unseen_labels) / 2, 2)
-    mu, ln_var = model.encode(unseen)
-    hat_labels_0, hat_labels_1 = model.predict_label(mu, ln_var, softmax=True)
-    hat_labels_0 = [np.argmax(x) for x in hat_labels_0.data]
-    hat_labels_0 = [groups['0'][x] for x in hat_labels_0]
-    hat_labels_1 = [np.argmax(x) for x in hat_labels_1.data]
-    hat_labels_1 = [groups['1'][x] for x in hat_labels_1]
+    if len(unseen) > 0:
+        unseen_labels_tmp = unseen_labels.reshape(len(unseen_labels) / 2, 2)
+        mu, ln_var = model.encode(unseen)
+        hat_labels_0, hat_labels_1 = model.predict_label(mu, ln_var, softmax=True)
+        hat_labels_0 = [np.argmax(x) for x in hat_labels_0.data]
+        hat_labels_0 = [groups['0'][x] for x in hat_labels_0]
+        hat_labels_1 = [np.argmax(x) for x in hat_labels_1.data]
+        hat_labels_1 = [groups['1'][x] for x in hat_labels_1]
 
-    result = []
-    for i, label in enumerate(unseen_labels_tmp):
-        result.append('True: ' + '_'.join(label) + ' Predicted: ' + hat_labels_0[i] + '_' + hat_labels_1[i])
-    print('\n')
-    for x in set(result):
-        count = sum(np.array(result) == x)
-        print(x + " Count: " + str(count))
+        result = []
+        for i, label in enumerate(unseen_labels_tmp):
+            result.append('True: ' + '_'.join(label) + ' Predicted: ' + hat_labels_0[i] + '_' + hat_labels_1[i])
+        print('\n')
+        for x in set(result):
+            count = sum(np.array(result) == x)
+            print(x + " Count: " + str(count))
 
     all_labels = np.append(test_labels, unseen_labels, axis=0)
     colors = attach_colors(all_labels)
