@@ -183,7 +183,7 @@ class Conv_VAE(chainer.Chain):
         if softmax:
             return F.softmax(one_hot_vector_0), F.softmax(one_hot_vector_1)
         else:
-            return one_hot_vector_0, one_hot_vector_1
+            return [one_hot_vector_0, one_hot_vector_1]
 
     def get_latent(self, x):
         mu, ln_var = self.encode(x)
@@ -208,6 +208,9 @@ class Conv_VAE(chainer.Chain):
             in_labels_0 = x[1]
             in_labels_1 = x[2]
 
+            mask = x[3]
+            mask_flipped = 1 - mask
+
             mu, ln_var = self.encode(in_img)
             batchsize = len(mu.data)
             # reconstruction loss
@@ -221,6 +224,20 @@ class Conv_VAE(chainer.Chain):
                 rec_loss += F.bernoulli_nll(in_img, out_img) / (k * batchsize)
 
                 out_labels_0, out_labels_1 = self.predict_label(mu, ln_var, softmax=False)
+
+                # print(mask)
+                # print(mask_flipped)
+                # print(out_labels_0)
+
+                # TODO - make the tiling automatic and not hardcoded!!!
+                fixed_labels = (cupy.tile(numpy.array([1, -100]), (batchsize, 1)) * mask_flipped[:, numpy.newaxis])
+                out_labels_0 = out_labels_0 * mask[:, numpy.newaxis] + fixed_labels
+                fixed_labels = (cupy.tile(numpy.array([1, -100]), (batchsize, 1)) * mask_flipped[:, numpy.newaxis])
+                out_labels_1 = out_labels_1 * mask[:, numpy.newaxis] + fixed_labels
+
+                # print(out_labels_0)
+                # exit()
+
                 label_acc += F.accuracy(out_labels_0, in_labels_0)
                 label_acc += F.accuracy(out_labels_1, in_labels_1)
                 label_loss += F.softmax_cross_entropy(out_labels_0, in_labels_0) / (k * batchsize)

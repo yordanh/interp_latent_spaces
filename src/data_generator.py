@@ -38,6 +38,7 @@ class DataGenerator(object):
 
             folder_name_train = "data/dSprites/train/"
             folder_name_unseen = "data/dSprites/unseen/"
+            folder_name_unlabelled = "data/dSprites/unlabelled/"
             data_split = 0.8
             image_size = 100
 
@@ -48,19 +49,16 @@ class DataGenerator(object):
             train = []
             train_labels = []
             train_vectors = []
+            train_masks = []
             test = []
             test_labels = []
             test_vectors = []
+            test_masks = []
             unseen = []
             unseen_labels = []
             unseen_vectors = []
 
             folder_list_train = os.listdir(folder_name_train)
-            folder_list_unseen = os.listdir(folder_name_unseen)
-
-            # print(groups)
-            # print(folder_list_train)
-            # print(folder_list_unseen)
 
             # big, blue, flat are 3 folders with overlapping images
             if args.labels == "singular":
@@ -87,20 +85,22 @@ class DataGenerator(object):
                         test_labels += [folder] * test_n
                         test_vectors += list(np.tile(folders_for_training.index(folder), (test_n)))
 
-                for folder in folder_list_unseen:
-                    image_list = os.listdir(folder_name_unseen+folder)
-                    number_of_images = len(image_list)
-                    unseen_n = test_n
-                    unseen_indecies = np.random.choice(range(number_of_images), unseen_n, replace=False)                    
+                if os.path.exists(folder_name_unseen):
+                    folder_list_unseen = os.listdir(folder_name_unseen)
+                    for folder in folder_list_unseen:
+                        image_list = os.listdir(folder_name_unseen+folder)
+                        number_of_images = len(image_list)
+                        unseen_n = test_n
+                        unseen_indecies = np.random.choice(range(number_of_images), unseen_n, replace=False)                    
 
-                    print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
-                                                                             len(folder_list_unseen), 
-                                                                             len(image_list)))
+                        print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
+                                                                                 len(folder_list_unseen), 
+                                                                                 len(image_list)))
 
-                    for image_name in np.take(image_list, unseen_indecies, axis=0):
-                        unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))
-                    unseen_labels += [folder] * unseen_n
-                    unseen_vectors += list(np.tile(folders_for_unseen.index(folder), (unseen_n)))
+                        for image_name in np.take(image_list, unseen_indecies, axis=0):
+                            unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))
+                        unseen_labels += [folder] * unseen_n
+                        unseen_vectors += list(np.tile(folders_for_unseen.index(folder), (unseen_n)))
             
             # big_blue_flat is one folder with unique images
             elif args.labels == "composite":
@@ -126,6 +126,7 @@ class DataGenerator(object):
                             train.append(cv2.imread(folder_name_train+folder+"/"+image_name, 1))
 
                     train_labels += folder.split('_') * train_n
+                    train_masks += [1] * train_n
 
                     for i, group in enumerate(groups):
                         label = filter(lambda x : x in groups[str(i)], folder.split('_'))
@@ -136,53 +137,103 @@ class DataGenerator(object):
                         test.append(cv2.imread(folder_name_train+folder+"/"+image_name, 1))
 
                     test_labels += folder.split('_') * test_n
+                    test_masks += [1] * test_n
 
                     for i, group in enumerate(groups):
                         label = filter(lambda x : x in groups[str(i)], folder.split('_'))
                         label = label[0]
                         test_vectors[i] += list(np.tile(groups[str(i)].index(label), (test_n)))
 
-                for folder in folder_list_unseen:
-                    image_list = os.listdir(folder_name_unseen+folder)
-                    number_of_images = len(image_list)
-                    unseen_n = test_n
-                    unseen_indecies = np.random.choice(range(number_of_images), unseen_n, replace=False)                                        
 
-                    print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
-                                                                             len(folder_list_unseen), 
-                                                                             len(image_list)))
 
-                    for image_name in np.take(image_list, unseen_indecies, axis=0):
-                        unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))#
-                    
-                    unseen_labels += folder.split('_') * unseen_n
 
-                    for i, group in enumerate(groups):   
-                        label = filter(lambda x : x in groups[str(i)], folder.split('_'))
-                        label = label[0]
-                        unseen_vectors[i] += list(np.tile(groups[str(i)].index(label), (unseen_n)))
 
-            # print("Train Vectors: {}".format(np.array(train_vectors)))
-            # print("Train Labels: {}".format(np.array(train_labels)))
+                # unlabelled datapoints
+                if os.path.exists(folder_name_unlabelled):
+                    for folder in os.listdir(folder_name_unlabelled):
+                        image_list = os.listdir(folder_name_unlabelled + folder)
+                        number_of_images = len(image_list)
+                        train_n = int(data_split * number_of_images)
+                        test_n = number_of_images - train_n
+                        train_indecies = np.random.choice(range(number_of_images), train_n, replace=False)
+                        test_indecies = filter(lambda x : x not in train_indecies, range(number_of_images))
 
-            # print("Test Vectors: {}".format(np.array(test_vectors)))
-            # print("Test Labels: {}".format(np.array(test_labels)))
+                        for image_name in np.take(image_list, train_indecies, axis=0):
+                                train.append(cv2.imread(folder_name_unlabelled+folder+"/"+image_name, 1))
+
+                        train_labels += folder.split('_') * train_n
+                        train_masks += [0] * train_n
+
+                        for i, group in enumerate(groups):
+                            label = 0
+                            train_vectors[i] += list(np.tile(label, (train_n)))
+
+                        for image_name in np.take(image_list, test_indecies, axis=0):
+                            test.append(cv2.imread(folder_name_unlabelled+folder+"/"+image_name, 1))
+
+                        test_labels += folder.split('_') * test_n
+                        test_masks += [0] * test_n
+
+                        for i, group in enumerate(groups):
+                            label = 0
+                            test_vectors[i] += list(np.tile(label, (test_n)))
+
+
+                # print(train_masks)
+                # print(len(train_masks), sum(train_masks))
+                # print(test_masks)
+                # print(len(test_masks), sum(test_masks))
+
+                if os.path.exists(folder_name_unseen):
+                    folder_list_unseen = os.listdir(folder_name_unseen)
+                    for folder in folder_list_unseen:
+                        image_list = os.listdir(folder_name_unseen+folder)
+                        number_of_images = len(image_list)
+                        unseen_n = test_n
+                        unseen_indecies = np.random.choice(range(number_of_images), unseen_n, replace=False)                                        
+
+                        print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
+                                                                                 len(folder_list_unseen), 
+                                                                                 len(image_list)))
+
+                        for image_name in np.take(image_list, unseen_indecies, axis=0):
+                            unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))#
+                        
+                        unseen_labels += folder.split('_') * unseen_n
+
+                        for i, group in enumerate(groups):   
+                            # label = filter(lambda x : x in groups[str(i)], folder.split('_'))
+                            label = 0
+                            unseen_vectors[i] += list(np.tile(label, (unseen_n)))
+
+            print("Train Vectors: {}".format(np.array(train_vectors)))
+            print("Train Labels: {}".format(np.array(train_labels)))
+            print("Train Masks: {}".format(np.array(train_masks)))
+
+            print("Test Vectors: {}".format(np.array(test_vectors)))
+            print("Test Labels: {}".format(np.array(test_labels)))
+            print("Test Masks: {}".format(np.array(test_masks)))
 
             # print("Unseen Vectors: {}".format(np.array(unseen_vectors)))
             # print("Unseen Labels: {}".format(np.array(unseen_labels)))
 
-            train = np.array(train)
+            train = np.array(train, dtype=np.float32) / 255.
             train_labels = np.array(train_labels)
             train_vectors = np.array(train_vectors)
-            test = np.array(test)
+            train_masks = np.array(train_masks)
+
+            test = np.array(test, dtype=np.float32) / 255.
             test_labels = np.array(test_labels)
             test_vectors = np.array(test_vectors)
-            unseen = np.array(unseen)
+            test_masks = np.array(test_masks)
+            
+            unseen = np.array(unseen, dtype=np.float32) / 255.
             unseen_labels = np.array(unseen_labels)
             unseen_vectors = np.array(unseen_vectors)
-            train = train.astype('float32') / 255.
-            test = test.astype('float32') / 255.
-            unseen = unseen.astype('float32') / 255.
+            
+            # train = train.astype('float32') / 255.
+            # test = test.astype('float32') / 255.
+            # unseen = unseen.astype('float32') / 255.
 
             # adapt this if using `channels_first` image data format
             if args.model == "conv":
@@ -199,8 +250,8 @@ class DataGenerator(object):
 
         #augment the training, testing, unseen datapoints with their labels
         if args.labels == "composite":
-            train_concat = zip(train, train_vectors[0], train_vectors[1])
-            test_concat = zip(test, test_vectors[0], test_vectors[1])
+            train_concat = zip(train, train_vectors[0], train_vectors[1], train_masks)
+            test_concat = zip(test, test_vectors[0], test_vectors[1], test_masks)
             if len(unseen) != 0:
                 unseen_concat = zip(unseen, unseen_vectors[0], unseen_vectors[1])
             else:
