@@ -8,6 +8,7 @@ from scipy.stats import multivariate_normal
 import cv2
 from scipy.stats import norm
 from math import sqrt
+import itertools
 
 import matplotlib
 matplotlib.use('agg')
@@ -138,7 +139,8 @@ def save_images(x, no_images, filename, args):
 # and fitted overlayed distributions
 def attach_colors(labels, composite=True):
 
-    colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'maroon', 'lime', 'salmon', 'crimson', 'gold', 'coral', 'r', 'purple', 'olive', 'navy', 'yellowgreen', 'brown']
+    colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'maroon', 'lime', 'salmon', 
+              'crimson', 'gold', 'coral', 'r', 'purple', 'olive', 'navy', 'yellowgreen', 'brown']
     result = {"singular":{}, "composite":{}}
 
     counter = 0
@@ -299,7 +301,8 @@ def plot_separate_distributions(data, labels, boundaries, colors, model, name, a
 
 # sample datapoints under the prior normal distribution and reconstruct
 # samples_per_dimension has to be even
-def plot_sampled_images(model, data, boundaries=None, samples_per_dimension=16, image_size=100, offset=10, image_channels=3, args=None):
+def plot_sampled_images(model=None, data=None, boundaries=None, samples_per_dimension=16, 
+                        image_size=100, offset=10, image_channels=3, args=None):
 
         rows = image_size * samples_per_dimension + offset * samples_per_dimension
         columns = image_size * samples_per_dimension + offset * samples_per_dimension
@@ -340,3 +343,150 @@ def plot_sampled_images(model, data, boundaries=None, samples_per_dimension=16, 
 
         figure = (figure*255)
         cv2.imwrite("result/latent_samples.png", figure)
+
+########################################
+############# EVAL METRICS #############
+########################################
+
+def axes_alignment(data=None, labels=None, model=None, args=None):
+
+    labels = labels.tolist()
+    for label in set(labels):
+        indecies = [i for i, x in enumerate(labels) if x == label]
+        filtered_data = chainer.Variable(data.take(indecies, axis=0))
+        latent = model.get_latent(filtered_data)
+        latent = latent.data
+        hinton_diagram(np.array([latent[:, i] for i in range(latent.shape[-1])]), label, args)
+
+def hinton_diagram(data, label, args):
+        fig,ax = plt.subplots(1,1)
+        data = np.array(data)
+        principal_axes = np.identity(data.shape[0])
+
+        ax.patch.set_facecolor('lightgray')
+        ax.set_aspect('equal', 'box')
+        
+        # Customize minor tick labels
+        ax.set_xticks([0,1,2,3],      minor=False)
+        ax.set_xticklabels(['pc1','pc2','pc3','pc4'], minor=False)
+
+        ax.set_yticks([0,1,2,3],      minor=False)
+        ax.set_yticklabels(['z1','z2','z3','z4'], minor=False)
+        
+        scatter = np.cov(data)
+        eig_val, eig_vec = np.linalg.eig(scatter)
+        eig_vec = eig_vec.T
+        
+        pairs = itertools.product(eig_vec, principal_axes)
+        cosines = np.array([abs(cosine(p[0], p[1])) for p in pairs]).reshape(scatter.shape)
+    
+        min_eig_value_x = eig_val.argmin()
+        min_eig_value_y = cosines[min_eig_value_x].argmax()
+        max_eig_value = eig_val.max()
+        height, width = cosines.shape
+        
+        for (x, y), c in np.ndenumerate(cosines):
+            val = eig_val[x]
+            if x == min_eig_value_x or y == min_eig_value_y:
+                color = (1.0, 1.0, 1.0)
+            else:
+                color = (0.0, 0, 0)
+            size = np.sqrt(c)
+            rect = plt.Rectangle([x - size / 2, y - size / 2], size, size,
+                                 facecolor=color, edgecolor=color)
+            ax.add_patch(rect)
+
+        ax.autoscale_view()
+        ax.invert_yaxis()
+        ax.set_title(label, fontweight="bold", fontsize=15)
+        plt.savefig(os.path.join(args.out, label + '_Hinton.png'))
+        plt.close()
+
+    
+def cosine(x,y):
+    return np.dot(x,y) / float(np.linalg.norm(x) * np.linalg.norm(y))
+
+
+def label_analisys(data=None, labels=None, groups=None, model=None, args=None):
+    
+    mu, ln_var = model.encode(data)
+    predictions = model.predict_label(mu, ln_var, softmax=True)
+    predictions = [[np.argmax(x) for x in pred_per_group.data] for pred_per_group in predictions]
+
+    true_labels = []
+    n_groups = len(groups)
+    for i in range(n_groups):
+        true_labels.append(labels[i::n_groups])
+
+    for i, group in enumerate(predictions):
+        predictions[i] = [groups[str(i)][x] for x in group]
+
+    true_sets = [sorted(list(set(group))) for group in true_labels]
+    pred_sets = [sorted(groups[group_key]) for group_key in sorted(groups.keys())]
+
+    cms = []
+    for i in range(len(predictions)):
+        pred_per_group = predictions[i]
+        true_per_group = true_labels[i]
+        pred_set = pred_sets[i]
+        true_set = true_sets[i]
+
+        cm = np.zeros((len(true_set), len(pred_set)))
+
+        for i in range(len(true_per_group)):
+            label_t = true_per_group[i]
+            label_p = pred_per_group[i]
+            x = true_set.index(label_t)
+            y = pred_set.index(label_p)
+            cm[x,y] += 1
+
+        cms.append(cm)
+
+    cms = np.array(cms)
+
+    plot_confusion_matrix(cms, zip(true_sets, pred_sets),
+                          title="Confusion Matrix Singular",
+                          args=args)
+
+
+def plot_confusion_matrix(cms, group_classes,
+                          normalize=False,
+                          title=None,
+                          cmap=plt.cm.Blues,
+                          args=None):
+
+    fig, subfiures = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
+    for i, subfig in enumerate(subfiures):
+
+        cm = cms[i]
+        (true, pred) = group_classes[i]
+
+        cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+        cax = subfig.imshow(cm, interpolation='nearest', cmap=cmap)
+        subfig.set_title(i)
+        fig.colorbar(cax, ax=subfig)
+        
+        subfig.set_xticks(range(len(pred)), minor=False)
+        subfig.set_xticklabels(pred, minor=False)
+        subfig.set_yticks(range(len(true)), minor=False)
+        subfig.set_yticklabels(true, minor=False)
+
+        fmt = '.2f'
+        thresh = cm.max() / 2.
+        for x, y in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+
+            size = 0.9
+            rect = plt.Rectangle([y - size / 2, x - size / 2], size, size,
+                                     facecolor=(0,0,0,0))
+            subfig.add_patch(rect)
+            subfig.text(y, x, format(cm_norm[x, y], fmt),
+                     horizontalalignment="center",
+                     color="white" if cm[x, y] > thresh else "black")
+
+        subfig.autoscale_view()
+        subfig.set_ylabel('True label')
+        subfig.set_xlabel('Predicted label')
+    fig.tight_layout()
+    plt.savefig(os.path.join(args.out, title + "_confusion_matrices" + '.png'))
+    plt.close()

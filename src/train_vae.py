@@ -66,8 +66,12 @@ def main():
     print("DATA_LOADED")
     print("# Training: \t\t{0}".format(train.shape))
     print("# Training labels: \t{0}".format(set(train_labels)))
+    print("# Training labels: \t{0}".format(train_labels.shape))
+    print("# Training vectors: \t{0}".format(train_vectors.shape))
     print("# Testing: \t\t{0}".format(test.shape))
     print("# Testing labels: \t{0}".format(set(test_labels)))
+    print("# Testing labels: \t{0}".format(test_labels.shape))
+    print("# Testing vectors: \t{0}".format(test_vectors.shape))
     print("# Unseen: \t\t{0}".format(unseen.shape))
     print("# Unseen labels: \t{0}".format(set(unseen_labels)))
     print('###############################################\n')
@@ -86,10 +90,6 @@ def main():
             model = net.Conv_VAE_MNIST(train.shape[1], args.dimz, beta=args.beta)
     else:
         model = net.VAE(train.shape[1], args.dimz, 500)
-
-
-    compare_labels(test, np.array(test_vectors), model, args)    
-
 
     if args.gpu >= 0:
         # Make a specified GPU current
@@ -181,22 +181,14 @@ def main():
     config_parser = ConfigParser("config/config.json")
     groups = config_parser.parse_groups()
 
-    if len(unseen) > 0:
-        unseen_labels_tmp = unseen_labels.reshape(len(unseen_labels) / 2, 2)
-        mu, ln_var = model.encode(unseen)
-        hat_labels_0, hat_labels_1 = model.predict_label(mu, ln_var, softmax=True)
-        hat_labels_0 = [np.argmax(x) for x in hat_labels_0.data]
-        hat_labels_0 = [groups['0'][x] for x in hat_labels_0]
-        hat_labels_1 = [np.argmax(x) for x in hat_labels_1.data]
-        hat_labels_1 = [groups['1'][x] for x in hat_labels_1]
+    print("Clear Images from Last experiment\n")
+    clear_last_results(args.out)
 
-        result = []
-        for i, label in enumerate(unseen_labels_tmp):
-            result.append('True: ' + '_'.join(label) + ' Predicted: ' + hat_labels_0[i] + '_' + hat_labels_1[i])
-        print('\n')
-        for x in set(result):
-            count = sum(np.array(result) == x)
-            print(x + " Count: " + str(count))
+    if len(unseen) > 0:
+        data = np.append(test, unseen, axis=0)
+        labels = np.append(test_labels, unseen_labels, axis=0)
+        print("Label Analisys\n")
+        label_analisys(data=data, labels=labels, groups=groups, model=model, args=args)
 
     all_labels = np.append(test_labels, unseen_labels, axis=0)
     colors = attach_colors(all_labels)
@@ -207,14 +199,8 @@ def main():
     no_std = 2
     boundaries = np.array([mean - no_std*cov.diagonal(), mean + no_std*cov.diagonal()])
 
-    print("Clear Images from Last experiment\n")
-    clear_last_results(args.out)
-
     print("Saving the loss plots\n")
-    plot_loss_curves(stats, args)
-
-    print("Predict labels\n")
-    compare_labels(test, np.array(test_vectors), model, args)    
+    plot_loss_curves(stats, args)   
 
     print("Performing Reconstructions\n")
     perform_reconstructions(model, train, test, unseen, args)
@@ -230,6 +216,9 @@ def main():
     plot_labels = np.append(test_labels, unseen_labels, axis=0)
     plot_separate_distributions(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate_unseen", args=args)
     plot_overall_distribution(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_together_unseen", args=args)
+
+    print("Evaluate Axes Alignment\n")
+    axes_alignment(data=data, labels=plot_labels, model=model, args=args)
 
     if args.labels == "composite":
         print("Plot Latent Testing Distribution for Composite Labels\n")
