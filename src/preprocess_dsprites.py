@@ -48,6 +48,7 @@ def extract(folder_name=None, labels=None, args=None, latent_spec=None, cutoff=N
 			break
 
 		image = cv2.resize(image, (image_size, image_size))
+
 		for bgr_color in latent_spec["color"]:
 			image_out = numpy.tile(image.reshape(image_size,image_size,1), (1, 1, 3)) * bgr_color
 			
@@ -149,12 +150,18 @@ if __name__ == "__main__":
 	# user-defined labels we need to know what do these
 	# labels mean wrt to the latent factors
 	mappings = {}
-	mappings['color'] = {'white': numpy.array([255, 255, 255]),
-						 'red': numpy.array([0, 0, 255]),
-						 'yellow': numpy.array([0, 255, 255]),
-						 'green': numpy.array([0, 255, 0]),
-						 'blue': numpy.array([255, 0, 0]),
-						 'pink': numpy.array([255, 0, 255])
+	mappings['color'] = {'white': [numpy.array([255, 255, 255])],
+						 'red' : [numpy.array([0, 64, 192])],
+						 'red1' : [numpy.array([0, 64, 192])],
+						 'ured' : [numpy.array([127, 0, 235]), numpy.array([12, 16, 225])],
+						 'uyellow': [numpy.array([10, 240, 250]), numpy.array([10, 208, 228])],
+						 'yellow' : [numpy.array([111, 217, 228])],
+						 'ugreen' : [numpy.array([20, 240, 10]), numpy.array([137, 180, 62])],
+						 'green' : [numpy.array([60, 107, 10])],
+						 'blue': [numpy.array([255, 127, 0])],
+						 'blue1' : [numpy.array([255, 127, 0])],
+						 'ublue' : [numpy.array([250, 245, 13]), numpy.array([240, 21, 7])],
+						 'pink': [numpy.array([255, 0, 255])]
 						 }
 
 	mappings['shape'] = {'square': 0,
@@ -162,8 +169,11 @@ if __name__ == "__main__":
 				   		 'heart': 2}
 
 	mappings['scale'] = {'small': [0],
+						 'usmall': [0],
 						 'medium': [2],
-				   		 'big': [5]}
+						 'umedium': [2],
+				   		 'big' : [5],
+				   		 'ubig' : [5]}
 
 	mappings['orientation'] = {'rotated': [4,14,24,34],
 						 	   'flat': [0,10,20,39]}
@@ -181,7 +191,7 @@ if __name__ == "__main__":
 	# [5] Position Y: 32 values in [0, 1]
 	latent_spec = {'color': ['white', 'red', 'yellow', 'green', 'blue', 'pink'],
 				   'shape': [0],#range(3),
-				   'scale': range(6),
+				   'scale': [0,5],#range(6),
 				   'orientation': [0,10,20,39,4,14,24,34],
 				   'x': [13, 14, 15, 16, 17],
 				   'y': [13, 14, 15, 16, 17]}
