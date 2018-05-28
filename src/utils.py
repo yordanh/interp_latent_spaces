@@ -221,12 +221,12 @@ def plot_overall_distribution(data, labels, boundaries, colors, model, name, arg
 
 # plot a set of input datapoitns to the latent space and fit normal distributions over the projections
 # show the contours for the distribution for each label
-def plot_separate_distributions(data, labels, boundaries, colors, model, name, args):
+def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=None, colors=None, model=None, name=None, args=None):
     latent_all = []
 
     # scatter plot all the data points in the latent space
     plt.figure(figsize=(10, 10))
-    labels = labels.tolist()
+    labels = labels
     for label in set(labels):
         indecies = [i for i, x in enumerate(labels) if x == label]
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
@@ -266,6 +266,32 @@ def plot_separate_distributions(data, labels, boundaries, colors, model, name, a
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
     plt.savefig(os.path.join(args.out, name + "_overlayed"), bbox_inches="tight")
     plt.close()
+
+    if groups is not None:
+        for key in groups:
+            plt.figure(figsize=(10, 10))
+            labels_group = labels[int(key)::2]
+            for label in set(labels_group):
+                indecies = [i for i, x in enumerate(labels) if x == label]
+                filtered_data = chainer.Variable(data.take(indecies, axis=0))
+                latent = model.get_latent(filtered_data)
+                latent = latent.data
+                latent_all.append(latent)
+                plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
+            plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+            # plot bounding box for the visualised manifold
+            # boundaries are [[min_x, min_y],[max_x, max_y]]
+            plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[0,1], boundaries[0,1]], 'r') # top line
+            plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[1,1], boundaries[1,1]], 'r') # bottom line
+            plt.plot([boundaries[0,0], boundaries[0,0]], [boundaries[0,1], boundaries[1,1]], 'r') # left line
+            plt.plot([boundaries[1,0], boundaries[1,0]], [boundaries[0,1], boundaries[1,1]], 'r') # right line
+            # major axes
+            plt.plot([boundaries[0,0], boundaries[1,0]], [0,0], 'k')
+            plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
+
+            plt.grid()
+            plt.savefig(os.path.join(args.out, name + "_group_" + key + '_overlayed'), bbox_inches="tight")
 
     # scatter datapoints and fit and overlay a distribution over each data label
     counter = 0
