@@ -184,10 +184,21 @@ def main():
     print("Clear Images from Last experiment\n")
     clear_last_results(args.out)
 
+    print("Saving the loss plots\n")
+    plot_loss_curves(stats, args)
+
     print("Label Analisys\n")
     data = np.append(test, unseen, axis=0)
     labels = np.append(test_labels, unseen_labels, axis=0)
     label_analysis(data=data, labels=labels, groups=groups, model=model, args=args)
+
+    print("Evaluate Axes Alignment\n")
+    data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
+    plot_labels = np.append(test_labels, unseen_labels, axis=0)
+    axes_alignment(data=data, labels=plot_labels, model=model, args=args)
+
+    print("Performing Reconstructions\n")
+    perform_reconstructions(model, train, test, unseen, args)
 
     # assign colors to each label for plotting purposes
     all_labels = np.append(test_labels, unseen_labels, axis=0)
@@ -197,28 +208,22 @@ def main():
     mean = np.mean(latent, axis=0)
     cov = np.cov(latent.T)
     no_std = 2
-    boundaries = np.array([mean - no_std*cov.diagonal(), mean + no_std*cov.diagonal()])
-
-    print("Saving the loss plots\n")
-    plot_loss_curves(stats, args)   
-
-    print("Performing Reconstructions\n")
-    perform_reconstructions(model, train, test, unseen, args)
+    boundaries = np.array([mean - no_std*cov.diagonal(), mean + no_std*cov.diagonal()])   
 
     print("Plot Latent Testing Distribution for Singular Labels\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
     plot_labels = test_labels
-    plot_separate_distributions(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate", args=args)
+    plot_separate_distributions(data, plot_labels, groups=groups, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate", args=args)
     plot_overall_distribution(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_together", args=args)
 
-    print("Plot Latent Testing + Unseen Distribution\n")
+    print("Plot Latent Testing Distribution for Singular Labels + Unseen Distribution\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
     plot_labels = np.append(test_labels, unseen_labels, axis=0)
     plot_separate_distributions(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate_unseen", args=args)
     plot_overall_distribution(data, plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_together_unseen", args=args)
 
-    print("Evaluate Axes Alignment\n")
-    axes_alignment(data=data, labels=plot_labels, model=model, args=args)
+    # print("Evaluate Axes Alignment\n")
+    # axes_alignment(data=data, labels=plot_labels, model=model, args=args)
 
     if args.labels == "composite":
         print("Plot Latent Testing Distribution for Composite Labels\n")
@@ -229,7 +234,7 @@ def main():
         plot_separate_distributions(data, plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_separate", args=args)
         plot_overall_distribution(data, plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_together", args=args)
 
-        print("Plot Latent Testing for Composite Labels + Unseen Distribution\n")
+        print("Plot Latent Testing Distribution for Composite Labels + Unseen Distribution\n")
         test_labels = np.append(test_labels, unseen_labels, axis=0)
         test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
         plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
