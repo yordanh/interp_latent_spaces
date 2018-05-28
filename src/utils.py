@@ -276,8 +276,18 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
                 filtered_data = chainer.Variable(data.take(indecies, axis=0))
                 latent = model.get_latent(filtered_data)
                 latent = latent.data
-                latent_all.append(latent)
+
                 plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
+
+                delta = 0.025
+                mean = np.mean(latent, axis=0)
+                cov = np.cov(latent.T)
+                x = np.arange(min(latent[:, 0]), max(latent[:, 0]), delta)
+                y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
+                X, Y = np.meshgrid(x, y)
+                Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
+                plt.contour(X, Y, Z, colors=colors[label]["dist"])
+            
             plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
             # plot bounding box for the visualised manifold
