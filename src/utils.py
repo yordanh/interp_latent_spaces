@@ -19,13 +19,13 @@ import matplotlib.pyplot as plt
 ########################################
 
 # delete all result files from the output folder
-def clear_last_results(folder_name):
+def clear_last_results(folder_name=None):
     all_images = list(filter(lambda filename : '.png' in filename, os.listdir(folder_name)))
     map(lambda x : os.remove(folder_name + x), all_images)
 
 
 # for a given set of example images, calculate their reconstructions
-def perform_reconstructions(model, train, test, unseen, args):
+def perform_reconstructions(model=None, train=None, test=None, unseen=None, args=None):
     no_images = 16
     train_ind = np.linspace(0, len(train) - 1, no_images, dtype=int)
     x = chainer.Variable(np.asarray(train[train_ind]))
@@ -59,7 +59,7 @@ def perform_reconstructions(model, train, test, unseen, args):
 
 
 # plot and save loss and accuracy curves
-def plot_loss_curves(stats, args):
+def plot_loss_curves(stats=None, args=None):
     # overall train/validation losses
     plt.figure(figsize=(10, 10))
     plt.grid()
@@ -100,7 +100,7 @@ def plot_loss_curves(stats, args):
 
 
 # calculate statistics for the predicted labels
-def compare_labels(test, test_labels, model, args, cuttoff_thresh=1):
+def compare_labels(test=None, test_labels=None, model=None, args=None, cuttoff_thresh=1):
 
     mu, ln_var = model.encode(test)
     
@@ -116,7 +116,7 @@ def compare_labels(test, test_labels, model, args, cuttoff_thresh=1):
 
 
 # visualize the results
-def save_images(x, no_images, filename, args):
+def save_images(x=None, no_images=None, filename=None, args=None):
 
     fig, ax = plt.subplots(int(sqrt(no_images)), int(sqrt(no_images)), figsize=(9, 9), dpi=100)
     for ai, xi in zip(ax.flatten(), x):
@@ -137,7 +137,7 @@ def save_images(x, no_images, filename, args):
 
 # attach a color to each singular and composite class labels, both for their data points 
 # and fitted overlayed distributions
-def attach_colors(labels, composite=True):
+def attach_colors(labels=None, composite=True):
 
     colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'maroon', 'lime', 'salmon', 
               'crimson', 'gold', 'coral', 'r', 'purple', 'olive', 'navy', 'yellowgreen', 'brown']
@@ -172,7 +172,8 @@ def attach_colors(labels, composite=True):
 
 # plot a set of input datapoitns to the latent space and fit a normal distribution over the projections
 # show the contours for the overall data distribution
-def plot_overall_distribution(data, labels, boundaries, colors, model, name, args):
+def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=None, model=None, 
+                              name=None, args=None):
     latent_all = None
 
     # scatter plot all the data points in the latent space
@@ -221,7 +222,8 @@ def plot_overall_distribution(data, labels, boundaries, colors, model, name, arg
 
 # plot a set of input datapoitns to the latent space and fit normal distributions over the projections
 # show the contours for the distribution for each label
-def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=None, colors=None, model=None, name=None, args=None):
+def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=None, 
+                                colors=None, model=None, name=None, args=None):
     latent_all = []
 
     # scatter plot all the data points in the latent space
@@ -392,9 +394,9 @@ def axes_alignment(data=None, labels=None, model=None, args=None):
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
         latent = model.get_latent(filtered_data)
         latent = latent.data
-        hinton_diagram(np.array([latent[:, i] for i in range(latent.shape[-1])]), label, args)
+        hinton_diagram(data=np.array([latent[:, i] for i in range(latent.shape[-1])]), label=label, args=args)
 
-def hinton_diagram(data, label, args):
+def hinton_diagram(data=None, label=None, args=None):
         fig,ax = plt.subplots(1,1)
         data = np.array(data)
         principal_axes = np.identity(data.shape[0])
@@ -414,7 +416,7 @@ def hinton_diagram(data, label, args):
         eig_vec = eig_vec.T
         
         pairs = itertools.product(eig_vec, principal_axes)
-        cosines = np.array([abs(cosine(p[0], p[1])) for p in pairs]).reshape(scatter.shape)
+        cosines = np.array([abs(cosine(x=p[0], y=p[1])) for p in pairs]).reshape(scatter.shape)
     
         min_eig_value_x = eig_val.argmin()
         min_eig_value_y = cosines[min_eig_value_x].argmax()
@@ -439,7 +441,7 @@ def hinton_diagram(data, label, args):
         plt.close()
 
     
-def cosine(x,y):
+def cosine(x=None,y=None):
     return np.dot(x,y) / float(np.linalg.norm(x) * np.linalg.norm(y))
 
 
@@ -480,12 +482,12 @@ def label_analysis(data=None, labels=None, groups=None, model=None, args=None):
 
     cms = np.array(cms)
 
-    plot_confusion_matrix(cms, zip(true_sets, pred_sets),
+    plot_confusion_matrix(cms=cms, group_classes=zip(true_sets, pred_sets),
                           title="Confusion Matrix Singular",
                           args=args)
 
 
-def plot_confusion_matrix(cms, group_classes,
+def plot_confusion_matrix(cms=None, group_classes=None,
                           normalize=False,
                           title=None,
                           cmap=plt.cm.Blues,
