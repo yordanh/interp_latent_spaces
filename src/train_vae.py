@@ -184,12 +184,12 @@ def main():
     print("Clear Images from Last experiment\n")
     clear_last_results(args.out)
 
-    if len(unseen) > 0:
-        data = np.append(test, unseen, axis=0)
-        labels = np.append(test_labels, unseen_labels, axis=0)
-        print("Label Analisys\n")
-        label_analisys(data=data, labels=labels, groups=groups, model=model, args=args)
+    print("Label Analisys\n")
+    data = np.append(test, unseen, axis=0)
+    labels = np.append(test_labels, unseen_labels, axis=0)
+    label_analysis(data=data, labels=labels, groups=groups, model=model, args=args)
 
+    # assign colors to each label for plotting purposes
     all_labels = np.append(test_labels, unseen_labels, axis=0)
     colors = attach_colors(all_labels)
 

@@ -407,7 +407,7 @@ def cosine(x,y):
     return np.dot(x,y) / float(np.linalg.norm(x) * np.linalg.norm(y))
 
 
-def label_analisys(data=None, labels=None, groups=None, model=None, args=None):
+def label_analysis(data=None, labels=None, groups=None, model=None, args=None):
     
     mu, ln_var = model.encode(data)
     predictions = model.predict_label(mu, ln_var, softmax=True)
