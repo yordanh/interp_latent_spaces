@@ -49,16 +49,7 @@ class VAE(chainer.Chain):
 
 
     def get_loss_func(self, C=1.0, k=1):
-        """Get loss function of VAE.
-
-        The loss value is equal to ELBO (Evidence Lower Bound)
-        multiplied by -1.
-
-        Args:
-            C (int): Usually this is 1.0. Can be changed to control the
-                second term of ELBO bound, which works as regularization.
-            k (int): Number of Monte Carlo samples used in encoded vector.
-        """
+        """Get loss function of VAE."""
         def lf(x):
 
             images, labels = zip(*x)
@@ -90,7 +81,9 @@ class Conv_VAE(chainer.Chain):
             self.in_channels = in_channels
             self.beta = beta
             self.gamma = gamma
-            self.groups = groups
+            self.n_latent = n_latent
+            self.groups_len = [len(groups[key]) for key in groups]
+            self.classifiers = chainer.ChainList()
 
             # encoder
             self.encoder_conv_0 = L.Convolution2D(in_channels, 32, ksize=3, pad=1) # (100, 100)
@@ -106,9 +99,9 @@ class Conv_VAE(chainer.Chain):
             self.encoder_mu = L.Linear(8, n_latent)
             self.encoder_ln_var = L.Linear(8, n_latent)
 
-            # label predictors taking only the mean value into account
-            self.label_predictor_0 = L.Linear(1, len(self.groups["0"]))
-            self.label_predictor_1 = L.Linear(1, len(self.groups["1"]))
+            # label classifiers taking only the mean value into account
+            for i in range(self.n_latent):
+                self.classifiers.add_link(L.Linear(1, self.groups_len[i]))
 
             # decoder
             self.decoder_dense_0 = L.Linear(n_latent, 8)
@@ -165,83 +158,59 @@ class Conv_VAE(chainer.Chain):
         else:
             return out_img
     
-    def predict_label(self, mu, ln_var, softmax=True):
-        mu_0 = mu[:,0, None]
-        mu_1 = mu[:,1, None]
+    def predict_label(self, mus, ln_var, softmax=True):
+        result = []
 
-        ln_var_0 = ln_var[:,0, None]
-        ln_var_1 = ln_var[:,1, None]
+        for i in range(self.n_latent):
+            mu = mus[:, i, None]
+            prediction = self.classifiers[i](mu)
 
-        latent_0 = F.concat((mu_0, ln_var_0), axis=1)
-        latent_1 = F.concat((mu_1, ln_var_1), axis=1)
-        # latent = mu
+            # need the check because the softmax_cross_entropy has a softmax in it
+            if softmax:
+                result.append(F.softmax(prediction))
+            else:
+                result.append(prediction)
 
-        one_hot_vector_0 = self.label_predictor_0(mu_0)
-        one_hot_vector_1 = self.label_predictor_1(mu_1)
-
-        # need the check because the bernoulli_nll has a sigmoid in it
-        if softmax:
-            return F.softmax(one_hot_vector_0), F.softmax(one_hot_vector_1)
-        else:
-            return [one_hot_vector_0, one_hot_vector_1]
+        return result
 
     def get_latent(self, x):
         mu, ln_var = self.encode(x)
         return F.gaussian(mu, ln_var)
-        # return mu
-
 
     def get_loss_func(self, k=1):
-        """Get loss function of VAE.
+        """Get loss function of VAE."""
 
-        The loss value is equal to ELBO (Evidence Lower Bound)
-        multiplied by -1.
-
-        Args:
-            self.beta (int): Usually this is 1.0. Can be changed to control the
-                second term of ELBO bound, which works as regularization.
-            k (int): Number of Monte Carlo samples used in encoded vector.
-        """
         def lf(x):
 
             in_img = x[0]
-            in_labels_0 = x[1]
-            in_labels_1 = x[2]
+            in_labels = x[1:-1]
 
-            mask = x[3]
+            mask = x[-1]
             mask_flipped = 1 - mask
 
-            mu, ln_var = self.encode(in_img)
-            batchsize = len(mu.data)
-            # reconstruction loss
             rec_loss = 0
             label_loss = 0
             label_acc = 0
+
+            mu, ln_var = self.encode(in_img)
+            batchsize = len(mu.data)
+
             for l in six.moves.range(k):
                 z = F.gaussian(mu, ln_var)
 
                 out_img = self.decode(z, sigmoid=False)
                 rec_loss += F.bernoulli_nll(in_img, out_img) / (k * batchsize)
 
-                out_labels_0, out_labels_1 = self.predict_label(mu, ln_var, softmax=False)
+                out_labels = self.predict_label(mu, ln_var, softmax=False)
+                for i in range(self.n_latent):
+                    n = self.groups_len[i] - 1
 
-                # print(mask)
-                # print(mask_flipped)
-                # print(out_labels_0)
+                    # certain labels should not contribute to the calculation of the label loss values
+                    fixed_labels = (cupy.tile(cupy.array([1] + [-100] * n), (batchsize, 1)) * mask_flipped[:, numpy.newaxis])
+                    out_labels[i] = out_labels[i] * mask[:, numpy.newaxis] + fixed_labels
 
-                # TODO - make the tiling automatic and not hardcoded!!!
-                fixed_labels = (cupy.tile(numpy.array([1, -100]), (batchsize, 1)) * mask_flipped[:, numpy.newaxis])
-                out_labels_0 = out_labels_0 * mask[:, numpy.newaxis] + fixed_labels
-                fixed_labels = (cupy.tile(numpy.array([1, -100]), (batchsize, 1)) * mask_flipped[:, numpy.newaxis])
-                out_labels_1 = out_labels_1 * mask[:, numpy.newaxis] + fixed_labels
-
-                # print(out_labels_0)
-                # exit()
-
-                label_acc += F.accuracy(out_labels_0, in_labels_0)
-                label_acc += F.accuracy(out_labels_1, in_labels_1)
-                label_loss += F.softmax_cross_entropy(out_labels_0, in_labels_0) / (k * batchsize)
-                label_loss += F.softmax_cross_entropy(out_labels_1, in_labels_1) / (k * batchsize)
+                    label_acc += F.accuracy(out_labels[i], in_labels[i])
+                    label_loss += F.softmax_cross_entropy(out_labels[i], in_labels[i]) / (k * batchsize)
 
             self.rec_loss = rec_loss
             self.label_loss = self.gamma * label_loss
