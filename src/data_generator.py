@@ -144,10 +144,6 @@ class DataGenerator(object):
                         label = label[0]
                         test_vectors[i] += list(np.tile(groups[str(i)].index(label), (test_n)))
 
-
-
-
-
                 # unlabelled datapoints
                 if os.path.exists(folder_name_unlabelled):
                     for folder in os.listdir(folder_name_unlabelled):
@@ -178,12 +174,7 @@ class DataGenerator(object):
                             label = 0
                             test_vectors[i] += list(np.tile(label, (test_n)))
 
-
-                # print(train_masks)
-                # print(len(train_masks), sum(train_masks))
-                # print(test_masks)
-                # print(len(test_masks), sum(test_masks))
-
+                # unseen datapoints
                 if os.path.exists(folder_name_unseen):
                     folder_list_unseen = os.listdir(folder_name_unseen)
                     for folder in folder_list_unseen:
@@ -202,17 +193,16 @@ class DataGenerator(object):
                         unseen_labels += folder.split('_') * unseen_n
 
                         for i, group in enumerate(groups):   
-                            # label = filter(lambda x : x in groups[str(i)], folder.split('_'))
                             label = 0
                             unseen_vectors[i] += list(np.tile(label, (unseen_n)))
 
-            print("Train Vectors: {}".format(np.array(train_vectors)))
-            print("Train Labels: {}".format(np.array(train_labels)))
-            print("Train Masks: {}".format(np.array(train_masks)))
+            # print("Train Vectors: {}".format(np.array(train_vectors)))
+            # print("Train Labels: {}".format(np.array(train_labels)))
+            # print("Train Masks: {}".format(np.array(train_masks)))
 
-            print("Test Vectors: {}".format(np.array(test_vectors)))
-            print("Test Labels: {}".format(np.array(test_labels)))
-            print("Test Masks: {}".format(np.array(test_masks)))
+            # print("Test Vectors: {}".format(np.array(test_vectors)))
+            # print("Test Labels: {}".format(np.array(test_labels)))
+            # print("Test Masks: {}".format(np.array(test_masks)))
 
             # print("Unseen Vectors: {}".format(np.array(unseen_vectors)))
             # print("Unseen Labels: {}".format(np.array(unseen_labels)))
@@ -230,10 +220,6 @@ class DataGenerator(object):
             unseen = np.array(unseen, dtype=np.float32) / 255.
             unseen_labels = np.array(unseen_labels)
             unseen_vectors = np.array(unseen_vectors)
-            
-            # train = train.astype('float32') / 255.
-            # test = test.astype('float32') / 255.
-            # unseen = unseen.astype('float32') / 255.
 
             # adapt this if using `channels_first` image data format
             if args.model == "conv":
