@@ -82,7 +82,7 @@ class Conv_VAE(chainer.Chain):
             self.beta = beta
             self.gamma = gamma
             self.n_latent = n_latent
-            self.groups_len = [len(groups[key]) for key in groups]
+            self.groups_len = [len(groups[key]) for key in sorted(groups.keys())]
             self.classifiers = chainer.ChainList()
 
             # encoder
