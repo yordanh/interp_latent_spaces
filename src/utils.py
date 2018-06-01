@@ -140,7 +140,7 @@ def save_images(x=None, no_images=None, filename=None, args=None):
 def attach_colors(labels=None, composite=True):
 
     colors = ['c', 'b', 'g', 'y', 'k', 'orange', 'maroon', 'lime', 'salmon', 
-              'crimson', 'gold', 'coral', 'r', 'purple', 'olive', 'navy', 'yellowgreen', 'brown']
+              'crimson', 'gold', 'coral', 'navy', 'purple', 'olive', 'r', 'yellowgreen', 'brown']
     result = {"singular":{}, "composite":{}}
 
     counter = 0
@@ -152,6 +152,9 @@ def attach_colors(labels=None, composite=True):
             result["singular"][label]["data"] = colors[counter]
             result["singular"][label]["dist"] = colors[counter + 1]
             counter += 1
+
+    result["singular"]["unknown"] = {}
+    result["singular"]["unknown"]["dist"] = colors[-1]
 
     if composite:
         labels = labels.reshape(len(labels) / 2, 2)
@@ -227,7 +230,6 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
 
     # scatter plot all the data points in the latent space
     plt.figure(figsize=(10, 10))
-    labels = labels
     for label in set(labels):
         indecies = [i for i, x in enumerate(labels) if x == label]
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
@@ -414,24 +416,30 @@ def hinton_diagram(data=None, label=None, args=None):
         eig_val, eig_vec = np.linalg.eig(scatter)
         eig_vec = eig_vec.T
         
-        pairs = itertools.product(eig_vec, principal_axes)
+        pairs = list(itertools.product(eig_vec, principal_axes))
         cosines = np.array([abs(cosine(x=p[0], y=p[1])) for p in pairs]).reshape(scatter.shape)
-    
+
         min_eig_value_x = eig_val.argmin()
         min_eig_value_y = cosines[min_eig_value_x].argmax()
         max_eig_value = eig_val.max()
         height, width = cosines.shape
         
+        fmt = '.2f'
         for (x, y), c in np.ndenumerate(cosines):
             val = eig_val[x]
             if x == min_eig_value_x or y == min_eig_value_y:
                 color = (1.0, 1.0, 1.0)
+                text_color = (0.0, 0.0, 0.0)
             else:
-                color = (0.0, 0, 0)
+                color = (0.0, 0.0, 0.0)
+                text_color = (1.0, 1.0, 1.0)
             size = np.sqrt(c)
             rect = plt.Rectangle([x - size / 2, y - size / 2], size, size,
                                  facecolor=color, edgecolor=color)
             ax.add_patch(rect)
+            ax.text(y, x, format(c, fmt),
+                     horizontalalignment="center",
+                     color=text_color)
 
         ax.autoscale_view()
         ax.invert_yaxis()
@@ -444,20 +452,91 @@ def cosine(x=None,y=None):
     return np.dot(x,y) / float(np.linalg.norm(x) * np.linalg.norm(y))
 
 
-def label_analysis(data=None, labels=None, groups=None, model=None, args=None):
-    
-    mu, ln_var = model.encode(data)
-    predictions = model.predict_label(mu, ln_var, softmax=True)
-    predictions = [[np.argmax(x) for x in pred_per_group.data] for pred_per_group in predictions]
+def test_time_classification(data_test=None, data_all=None, labels=None, unseen_labels=None, groups=None, boundaries=None, model=None, colors=None, args=None):
 
+    classifiers = {}
+    stds = {}
+    predicted_labels = []
+    for key in sorted(groups.keys()):
+        stds[key] = []
+        classifiers[key] = []
+        
+    for key in sorted(groups.keys()):
+        for label in groups[key]:
+            indecies = [i for i, x in enumerate(labels) if x == label]
+            filtered_data = chainer.Variable(data_test.take(indecies, axis=0))
+            latent = model.get_latent(filtered_data)
+            latent = latent.data
+
+            mean = np.mean(latent, axis=0)
+            cov = np.cov(latent.T)
+            classifiers[key].append({"label": label, "mean":mean[int(key)], "cov":cov[int(key),int(key)]})
+        
+        # sort the list by the value of the mean element
+        classifiers[key] = sorted(classifiers[key], key=lambda k: k['mean']) 
+
+    for key in sorted(classifiers.keys()):
+
+        # intermediate unknown distributions
+        classifier_tuples = zip(classifiers[key], classifiers[key][1:])
+        print(classifier_tuples)
+
+        # guarding unknown distributions
+        lefmost = classifiers[key][0]
+        rightmost = classifiers[key][-1]
+        # boundaries are [[min_x, min_y],[max_x, max_y]]
+        classifiers[key] += [{"label": "unknown", "mean": boundaries[0][int(key)], "cov": lefmost["cov"]}]
+        classifiers[key] += [{"label": "unknown", "mean": boundaries[1][int(key)], "cov": rightmost["cov"]}]
+
+        classifiers[key] += [{"label": "unknown", "mean": 0.5 * (cl1["mean"] + cl2["mean"]), "cov": 0.5 * (cl1["cov"] + cl2["cov"])} for (cl1, cl2) in classifier_tuples]
+
+
+    all_latent = model.get_latent_mu(data_all)
+
+    # Show the 1D Gaussians per Group
+    range = np.arange(-10, 10, 0.001)
+    all_labels = np.append(labels, unseen_labels, axis=0)
+    for label in list(set(all_labels)):
+        for key in sorted(classifiers.keys()):
+            if label in groups[key] or label[0] == "u":
+                indecies = [i for i, x in enumerate(all_labels) if x == label]
+                filtered_data = chainer.Variable(np.repeat(data_all, 2, axis=0).take(indecies, axis=0))
+
+                latent = model.get_latent_mu(filtered_data)
+
+                plt.figure(figsize=(10,10))
+
+                for cl in classifiers[key]:
+                    plt.plot(range, norm.pdf(range, cl["mean"], cl["cov"]), color=colors["singular"][cl["label"]]["dist"], label=cl["label"])
+                    plt.plot([cl["mean"], cl["mean"]], [0, norm.pdf([cl["mean"]], cl["mean"], cl["cov"])], color='r', linestyle="--")
+                    plt.xlim(boundaries[0][int(key)] - 2, boundaries[1][int(key)] + 2)
+                x = latent[:, int(key)]
+                y = np.zeros((1, len(latent)))
+                plt.scatter(x.data, y, alpha=0.75, marker='o', label=label + "_data")
+                plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                plt.grid()
+                plt.savefig(os.path.join(args.out, label + "_group_" + key + "_testime_distrobutions"), bbox_inches="tight")
+                plt.close()
+
+    for key in sorted(classifiers.keys()):
+        points = all_latent[:, int(key)]
+        stds[key] = np.array([[{"label": c["label"], "value": abs(c["mean"] - point.data) / c["cov"]} for c in classifiers[key]] for point in points])
+        stds[key] = map(lambda point_stds : sorted(point_stds, key=lambda k: k["value"])[0]["label"], stds[key])
+
+    predicted_labels = np.array([stds[key] for key in sorted(stds.keys())])
+
+    return predicted_labels
+
+
+def label_analysis(labels=None, predictions=None, groups=None, model=None, args=None):
+    
     true_labels = []
     n_groups = len(groups)
     for i in range(n_groups):
+        groups[str(i)].append("unknown")
         true_labels.append(labels[i::n_groups])
 
-    for i, group in enumerate(predictions):
-        predictions[i] = [groups[str(i)][x] for x in group]
-
+    # at this point both true_labels and predictions are strings
     true_sets = [sorted(list(set(group))) for group in true_labels]
     pred_sets = [sorted(groups[group_key]) for group_key in sorted(groups.keys())]
 
