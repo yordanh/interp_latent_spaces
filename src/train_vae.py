@@ -181,16 +181,33 @@ def main():
     config_parser = ConfigParser("config/config.json")
     groups = config_parser.parse_groups()
 
+    # calculate manifold boundaries
+    latent = model.get_latent(test).data
+    mean = np.mean(latent, axis=0)
+    cov = np.cov(latent.T)
+    no_std = 2
+    # boundaries are [[min_x, min_y],[max_x, max_y]]
+    boundaries = np.array([mean - no_std*cov.diagonal(), mean + no_std*cov.diagonal()])
+
+    # assign colors to each label for plotting purposes
+    all_labels = np.append(test_labels, unseen_labels, axis=0)
+    colors = attach_colors(labels=all_labels)  
+
+
+
     print("Clear Images from Last experiment\n")
     clear_last_results(folder_name=args.out)
 
-    print("Saving the loss plots\n")
-    plot_loss_curves(stats=stats, args=args)
+    print("Test time Classification\n")
+    tmp_labels = test_time_classification(data_test=np.repeat(test, 2, axis=0), data_all=np.append(test, unseen, axis=0), 
+                                          labels=test_labels, unseen_labels=unseen_labels, groups=groups, boundaries=boundaries, model=model, colors=colors, args=args)
 
     print("Label Analisys\n")
-    data = np.append(test, unseen, axis=0)
-    labels = np.append(test_labels, unseen_labels, axis=0)
-    label_analysis(data=data, labels=labels, groups=groups, model=model, args=args)
+    true_labels = np.append(test_labels, unseen_labels, axis=0)
+    label_analysis(labels=true_labels, predictions=tmp_labels, groups=groups, model=model, args=args)
+
+    print("Saving the loss plots\n")
+    plot_loss_curves(stats=stats, args=args)
 
     print("Evaluate Axes Alignment\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
@@ -198,17 +215,7 @@ def main():
     axes_alignment(data=data, labels=plot_labels, model=model, args=args)
 
     print("Performing Reconstructions\n")
-    perform_reconstructions(model=model, train=train, test=test, unseen=unseen, args=args)
-
-    # assign colors to each label for plotting purposes
-    all_labels = np.append(test_labels, unseen_labels, axis=0)
-    colors = attach_colors(labels=all_labels)
-
-    latent = model.get_latent(test).data
-    mean = np.mean(latent, axis=0)
-    cov = np.cov(latent.T)
-    no_std = 2
-    boundaries = np.array([mean - no_std*cov.diagonal(), mean + no_std*cov.diagonal()])   
+    perform_reconstructions(model=model, train=train, test=test, unseen=unseen, args=args) 
 
     print("Plot Latent Testing Distribution for Singular Labels\n")
     data = np.repeat(test, 2, axis=0)
@@ -221,9 +228,6 @@ def main():
     plot_labels = np.append(test_labels, unseen_labels, axis=0)
     plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate_unseen", args=args)
     plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_together_unseen", args=args)
-
-    # print("Evaluate Axes Alignment\n")
-    # axes_alignment(data=data, labels=plot_labels, model=model, args=args)
 
     if args.labels == "composite":
         print("Plot Latent Testing Distribution for Composite Labels\n")
