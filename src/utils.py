@@ -179,11 +179,10 @@ def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=No
     # scatter plot all the data points in the latent space
     plt.figure(figsize=(10, 10))
     concise_colors = list(set(labels))
-    labels = labels.tolist()
     for label in set(labels):
         indecies = [i for i, x in enumerate(labels) if x == label]
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
-        latent = model.get_latent(filtered_data)
+        latent = model.get_latent_mu(filtered_data)
         latent = latent.data
         plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
 
@@ -392,7 +391,7 @@ def axes_alignment(data=None, labels=None, model=None, args=None):
     for label in set(labels):
         indecies = [i for i, x in enumerate(labels) if x == label]
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
-        latent = model.get_latent(filtered_data)
+        latent = model.get_latent_mu(filtered_data)
         latent = latent.data
         hinton_diagram(data=np.array([latent[:, i] for i in range(latent.shape[-1])]), label=label, args=args)
 

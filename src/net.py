@@ -177,6 +177,10 @@ class Conv_VAE(chainer.Chain):
         mu, ln_var = self.encode(x)
         return F.gaussian(mu, ln_var)
 
+    def get_latent_mu(self, x):
+        mu, ln_var = self.encode(x)
+        return mu
+
     def get_loss_func(self, k=1):
         """Get loss function of VAE."""
 
