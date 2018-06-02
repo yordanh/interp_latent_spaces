@@ -1,21 +1,24 @@
 #!/usr/bin/env python
 import argparse
 import os
+import cv2
+import numpy as np
+from scipy.stats import multivariate_normal
+from scipy.stats import norm
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+import subprocess
+import shutil
 
 import chainer
 from chainer import training
 from chainer.training import extensions
-import numpy as np
-from scipy.stats import multivariate_normal
-import cv2
-from scipy.stats import norm
 from chainer.dataset import concat_examples
 from chainer.backends.cuda import to_cpu
 import chainer.functions as F
+from chainer import serializers
 
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
 
 import net
 import data_generator
@@ -45,6 +48,8 @@ def main():
                         help='Gamma coefficient for the classification loss')
     parser.add_argument('--labels', '-l', default="composite", 
                         help='Determined how to treat the labels for the different images')
+    parser.add_argument('--freq', '-f', default=10, 
+                    help='Frequency at which snapshots of the model are saved.')
     args = parser.parse_args()
 
     print('\n###############################################')
@@ -56,6 +61,7 @@ def main():
     print('# Model Architecture: \t{}'.format(args.model))
     print('# Beta: \t\t{}'.format(args.beta))
     print('# Gamma: \t\t{}'.format(args.gamma))
+    print('# Frequency: \t\t{}'.format(args.freq))
     print('# Out Folder: \t\t{}'.format(args.out))
     print('###############################################\n')
 
@@ -77,6 +83,12 @@ def main():
     print('###############################################\n')
 
     stats = {'train_loss': [], 'train_accs': [], 'valid_loss': [], 'valid_rec_loss': [], 'valid_label_loss': [], 'valid_label_acc': [], 'valid_kl': []}
+
+    models_folder = os.path.join(args.out, "models")
+    manifold_folder = os.path.join(args.out, "manifold_gif")
+    distr_folder = os.path.join(args.out, "distr_gif")
+    shutil.rmtree(os.path.join(args.out, "models"))
+    os.mkdir(os.path.join(args.out, "models"))
 
     train_iter = chainer.iterators.SerialIterator(train_concat, args.batchsize)
     test_iter = chainer.iterators.SerialIterator(test_concat, args.batchsize,
@@ -122,6 +134,10 @@ def main():
 
         # Update all the trainable paremters
         optimizer.update()
+
+
+        if train_iter.epoch % int(args.freq) == 0:
+            serializers.save_npz(os.path.join(models_folder ,str(train_iter.epoch) + '.model'), model)
         # --------------------- iteration until here --------------------- 
 
         if train_iter.is_new_epoch:
@@ -172,6 +188,12 @@ def main():
         # --------------------- epoch until here --------------------- 
 
 
+    print("Save Model\n")
+    serializers.save_npz(os.path.join(models_folder, 'final.model'), model)
+
+    print("Save Optimizer\n")
+    serializers.save_npz(os.path.join(models_folder, 'final.state'), optimizer)
+
 ########################################
 ########### RESULTS ANALYSIS ###########
 ########################################
@@ -215,19 +237,19 @@ def main():
     axes_alignment(data=data, labels=plot_labels, model=model, args=args)
 
     print("Performing Reconstructions\n")
-    perform_reconstructions(model=model, train=train, test=test, unseen=unseen, args=args) 
+    perform_reconstructions(model=model, train=train, test=test, unseen=unseen, args=args)
 
     print("Plot Latent Testing Distribution for Singular Labels\n")
     data = np.repeat(test, 2, axis=0)
     plot_labels = test_labels
-    plot_separate_distributions(data=data, labels=plot_labels, groups=groups, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate", args=args)
-    plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_together", args=args)
+    plot_separate_distributions(data=data, labels=plot_labels, groups=groups, boundaries=boundaries, colors=colors["singular"], model=model, filename=os.path.join(args.out, "singular_separate"))
+    plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, filename=os.path.join(args.out, "singular_together"))
 
     print("Plot Latent Testing Distribution for Singular Labels + Unseen Distribution\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
     plot_labels = np.append(test_labels, unseen_labels, axis=0)
-    plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_separate_unseen", args=args)
-    plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, name="singular_together_unseen", args=args)
+    plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, filename=os.path.join(args.out, "singular_separate_unseen"))
+    plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, filename=os.path.join(args.out, "singular_together_unseen"))
 
     if args.labels == "composite":
         print("Plot Latent Testing Distribution for Composite Labels\n")
@@ -235,21 +257,51 @@ def main():
         data = test
         test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
         plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
-        plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_separate", args=args)
-        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_together", args=args)
+        plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, filename=os.path.join(args.out, "composite_separate"))
+        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, filename=os.path.join(args.out, "composite_together"))
 
         print("Plot Latent Testing Distribution for Composite Labels + Unseen Distribution\n")
         data = np.append(test, unseen, axis=0)
-        test_labels = np.append(test_labels, unseen_labels, axis=0)
-        test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
+        test_labels_tmp = np.append(test_labels, unseen_labels, axis=0)
+        test_labels_tmp = test_labels_tmp.reshape(len(test_labels_tmp) / 2, 2)
         plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
-        plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_separate_unseen", args=args)
-        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, name="composite_together_unseen", args=args)
+        plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, filename=os.path.join(args.out, "composite_separate_unseen"))
+        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, filename=os.path.join(args.out, "composite_together_unseen"))
 
 
     # visualise the learnt data manifold in the latent space
     print("Plot Reconstructed images sampeld from a standart Normal\n")
-    plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], image_channels=data_dimensions[1], args=args)
+    data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
+    plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], image_channels=data_dimensions[1], filename=os.path.join(args.out, "latent_samples"))
+
+    print("Generating data for retrospective model evaluation\n")
+    for model_name in list(filter(lambda name : "final" not in name, os.listdir(models_folder))):
+        serializers.load_npz(os.path.join(models_folder, model_name), model)
+        filename = model_name.replace(".model", "")
+
+        data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
+        plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], image_channels=data_dimensions[1], 
+                            filename=os.path.join(manifold_folder, filename), args=args)
+
+
+        data = np.append(test, unseen, axis=0)
+        test_labels_tmp = np.append(test_labels, unseen_labels, axis=0)
+        test_labels_tmp = test_labels_tmp.reshape(len(test_labels_tmp) / 2, 2)
+        plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
+        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, 
+                                  overlay=False, filename=os.path.join(distr_folder, filename))
+
+    print("Making the Latent Manifold GIF\n")
+    samples = [x.replace(".png", "") for x in os.listdir(manifold_folder)]
+    samples.sort(key=int)
+    samples = [os.path.join(manifold_folder, x + ".png") for x in samples]
+    subprocess.call(["convert", "-loop", "5", "-delay",  "100"] + samples + [os.path.join(manifold_folder, "samples_animation.gif")])
+
+    print("Making the Composite Label Distribution GIF\n")
+    distr = [x.replace(".png", "") for x in os.listdir(distr_folder)]
+    distr.sort(key=int)
+    distr = [os.path.join(distr_folder, x + ".png") for x in distr]
+    subprocess.call(["convert", "-loop", "5", "-delay",  "100"] + distr + [os.path.join(distr_folder, "distr_animation.gif")])
 
 if __name__ == '__main__':
     main()

@@ -1,18 +1,19 @@
 #!/usr/bin/env pytho
 import os
-
-import chainer
-import chainer.functions as F
 import numpy as np
 from scipy.stats import multivariate_normal
 import cv2
 from scipy.stats import norm
 from math import sqrt
 import itertools
-
+import  copy
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+import shutil
+
+import chainer
+import chainer.functions as F
 
 ########################################
 ############ UTIL FUNCTIONS ############
@@ -20,8 +21,14 @@ import matplotlib.pyplot as plt
 
 # delete all result files from the output folder
 def clear_last_results(folder_name=None):
-    all_images = list(filter(lambda filename : '.png' in filename, os.listdir(folder_name)))
-    map(lambda x : os.remove(folder_name + x), all_images)
+    all_files = list(filter(lambda filename : '.' in filename, os.listdir(folder_name)))
+    map(lambda x : os.remove(folder_name + x), all_files)
+
+    leftover_folders = list(filter(lambda filename : filename != "models", os.listdir(folder_name)))
+    map(lambda x : shutil.rmtree(folder_name + x), leftover_folders)
+
+    os.mkdir(folder_name + "manifold_gif")
+    os.mkdir(folder_name + "distr_gif")
 
 
 # for a given set of example images, calculate their reconstructions
@@ -176,7 +183,7 @@ def attach_colors(labels=None, composite=True):
 # plot a set of input datapoitns to the latent space and fit a normal distribution over the projections
 # show the contours for the overall data distribution
 def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=None, model=None, 
-                              name=None, args=None):
+                              overlay=True, spread=False, filename=None):
     latent_all = None
 
     # scatter plot all the data points in the latent space
@@ -185,7 +192,10 @@ def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=No
     for label in set(labels):
         indecies = [i for i, x in enumerate(labels) if x == label]
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
-        latent = model.get_latent_mu(filtered_data)
+        if spread:
+            latent = model.get_latent(filtered_data)
+        else:
+            latent = model.get_latent_mu(filtered_data)
         latent = latent.data
         plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
 
@@ -206,26 +216,27 @@ def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=No
     plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
 
     plt.grid()
-    plt.savefig(os.path.join(args.out, name), bbox_inches="tight")
+    plt.savefig(filename, bbox_inches="tight")
     
-    # fit and plot a distribution over all the latent projections
-    delta = 0.025
-    mean = np.mean(latent_all, axis=0)
-    cov = np.cov(latent_all.T)
-    x = np.arange(min(latent_all[:, 0]), max(latent_all[:, 0]), delta)
-    y = np.arange(min(latent_all[:, 1]), max(latent_all[:, 1]), delta)
-    X, Y = np.meshgrid(x, y)
-    Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
-    plt.contour(X, Y, Z, colors='r')
-    plt.title("mu[0]:{0}; mu[1]:{1}\ncov[0,0]:{2}; cov[1,1]:{3}\ncov[0,1]:{4}".format(round(mean[0],2), round(mean[1],2), round(cov[0,0],2), round(cov[1,1],2), round(cov[0,1],2)))
-    plt.savefig(os.path.join(args.out, name + "_overlayed"), bbox_inches="tight")
+    if overlay:
+        # fit and plot a distribution over all the latent projections
+        delta = 0.025
+        mean = np.mean(latent_all, axis=0)
+        cov = np.cov(latent_all.T)
+        x = np.arange(min(latent_all[:, 0]), max(latent_all[:, 0]), delta)
+        y = np.arange(min(latent_all[:, 1]), max(latent_all[:, 1]), delta)
+        X, Y = np.meshgrid(x, y)
+        Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
+        plt.contour(X, Y, Z, colors='r')
+        plt.title("mu[0]:{0}; mu[1]:{1}\ncov[0,0]:{2}; cov[1,1]:{3}\ncov[0,1]:{4}".format(round(mean[0],2), round(mean[1],2), round(cov[0,0],2), round(cov[1,1],2), round(cov[0,1],2)))
+        plt.savefig(filename + "_overlayed", bbox_inches="tight")
     plt.close()
 
 
 # plot a set of input datapoitns to the latent space and fit normal distributions over the projections
 # show the contours for the distribution for each label
 def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=None, 
-                                colors=None, model=None, name=None, args=None):
+                                colors=None, model=None, filename=None, overlay=True):
     latent_all = []
 
     # scatter plot all the data points in the latent space
@@ -250,26 +261,28 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
     plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
 
     plt.grid()
-    plt.savefig(os.path.join(args.out, name), bbox_inches="tight")
+    plt.savefig(filename, bbox_inches="tight")
 
     # fit and overlay distributions for each class/label
-    counter = 0
-    for label in set(labels):
-        latent = latent_all[counter]
-        counter += 1
+    if overlay:
+        counter = 0
+        for label in set(labels):
+            latent = latent_all[counter]
+            counter += 1
 
-        delta = 0.025
-        mean = np.mean(latent, axis=0)
-        cov = np.cov(latent.T)
-        x = np.arange(min(latent[:, 0]), max(latent[:, 0]), delta)
-        y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
-        X, Y = np.meshgrid(x, y)
-        Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
-        plt.contour(X, Y, Z, colors=colors[label]["dist"])
-    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
-    plt.savefig(os.path.join(args.out, name + "_overlayed"), bbox_inches="tight")
+            delta = 0.025
+            mean = np.mean(latent, axis=0)
+            cov = np.cov(latent.T)
+            x = np.arange(min(latent[:, 0]), max(latent[:, 0]), delta)
+            y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
+            X, Y = np.meshgrid(x, y)
+            Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
+            plt.contour(X, Y, Z, colors=colors[label]["dist"])
+        plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+        plt.savefig(filename + "_overlayed", bbox_inches="tight")
     plt.close()
 
+    # plot the per-group disttibutions
     if groups is not None:
         for key in groups:
             plt.figure(figsize=(10, 10))
@@ -282,14 +295,15 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
 
                 plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
 
-                delta = 0.025
-                mean = np.mean(latent, axis=0)
-                cov = np.cov(latent.T)
-                x = np.arange(min(latent[:, 0]), max(latent[:, 0]), delta)
-                y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
-                X, Y = np.meshgrid(x, y)
-                Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
-                plt.contour(X, Y, Z, colors=colors[label]["dist"])
+                if overlay:
+                    delta = 0.025
+                    mean = np.mean(latent, axis=0)
+                    cov = np.cov(latent.T)
+                    x = np.arange(min(latent[:, 0]), max(latent[:, 0]), delta)
+                    y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
+                    X, Y = np.meshgrid(x, y)
+                    Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
+                    plt.contour(X, Y, Z, colors=colors[label]["dist"])
             
             plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
@@ -304,7 +318,8 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
             plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
 
             plt.grid()
-            plt.savefig(os.path.join(args.out, name + "_group_" + key + '_overlayed'), bbox_inches="tight")
+            plt.savefig(filename + "_group_" + key + '_overlayed', bbox_inches="tight")
+            plt.close()
 
     # scatter datapoints and fit and overlay a distribution over each data label
     counter = 0
@@ -313,15 +328,16 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
         latent = latent_all[counter]
         plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
 
-        delta = 0.025
-        mean = np.mean(latent, axis=0)
-        cov = np.cov(latent.T)
-        x = np.arange(min(latent[:, 0]), max(latent[:, 0]), delta)
-        y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
-        X, Y = np.meshgrid(x, y)
-        Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
-        plt.contour(X, Y, Z, colors=colors[label]["dist"])
-        plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+        if overlay:
+            delta = 0.025
+            mean = np.mean(latent, axis=0)
+            cov = np.cov(latent.T)
+            x = np.arange(min(latent[:, 0]), max(latent[:, 0]), delta)
+            y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
+            X, Y = np.meshgrid(x, y)
+            Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
+            plt.contour(X, Y, Z, colors=colors[label]["dist"])
+            plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
         # plot bounding box for the visualised manifold
         # boundaries are [[min_x, min_y],[max_x, max_y]]
@@ -334,14 +350,14 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
         plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
 
         plt.grid()
-        plt.savefig(os.path.join(args.out, name + "_overlayed" + "_" + str(counter)), bbox_inches="tight")
+        plt.savefig(filename + "_overlayed" + "_" + str(counter), bbox_inches="tight")
         plt.close()
         counter += 1
 
 # sample datapoints under the prior normal distribution and reconstruct
 # samples_per_dimension has to be even
 def plot_sampled_images(model=None, data=None, boundaries=None, samples_per_dimension=16, 
-                        image_size=100, offset=10, image_channels=3, args=None):
+                        image_size=100, offset=10, image_channels=3, filename=None, args=None):
 
         rows = image_size * samples_per_dimension + offset * samples_per_dimension
         columns = image_size * samples_per_dimension + offset * samples_per_dimension
@@ -366,22 +382,15 @@ def plot_sampled_images(model=None, data=None, boundaries=None, samples_per_dime
                 z_sample = np.array([[xi, yi]]).astype(np.float32)
                 x_decoded = model.decode(chainer.Variable(z_sample)).data
                 image_sample = x_decoded.reshape(x_decoded.shape[1:])
-
-                # if the network is conv it already outputs reshaped images; only has to swap the channels to be at the back
-                if args.model == "conv":
-                    image_sample = np.swapaxes(image_sample, 0, 2)
-                else:
-                    if args.data == "sprites":
-                        image_sample = image_sample.reshape(100, 100, 3)
-                    else:
-                        image_sample = image_sample.reshape(28, 28, 1)
+                image_sample = np.swapaxes(image_sample, 0, 2)
+                image_sample = image_sample.reshape(100, 100, 3)
 
                 figure[i * image_size + i * offset: (i + 1) * image_size + i * offset,
                        j * image_size + j * offset: (j + 1) * image_size + j * offset,
                        :] = image_sample
 
         figure = (figure*255)
-        cv2.imwrite("result/latent_samples.png", figure)
+        cv2.imwrite(filename + '.png', figure)
 
 ########################################
 ############# EVAL METRICS #############
@@ -465,6 +474,8 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
         for label in groups[key]:
             indecies = [i for i, x in enumerate(labels) if x == label]
             filtered_data = chainer.Variable(data_test.take(indecies, axis=0))
+            if len(filtered_data.data) == 0:
+                print(key, label)
             latent = model.get_latent(filtered_data)
             latent = latent.data
 
@@ -532,6 +543,7 @@ def label_analysis(labels=None, predictions=None, groups=None, model=None, args=
     
     true_labels = []
     n_groups = len(groups)
+    groups = copy.deepcopy(groups)
     for i in range(n_groups):
         groups[str(i)].append("unknown")
         true_labels.append(labels[i::n_groups])
