@@ -1,6 +1,7 @@
 # results
 result/*
 interesting_mnist/*
+keep/*
 
 # data
 data/*
