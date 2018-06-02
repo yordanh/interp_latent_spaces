@@ -21,6 +21,8 @@ ARG python_version=2.7.13
 # Autograd, Chainer and PyMC3
 RUN conda install -y python=${python_version} && \
     apt-get install -y htop && \
+    apt-get update --fix-missing && \
+    apt-get install -y imagemagick && \
     apt-get install -y tmux && \
     pip install --upgrade pip && \
     pip install tensorflow-gpu pydot-ng keras && \
