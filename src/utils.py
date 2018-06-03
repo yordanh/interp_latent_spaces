@@ -399,8 +399,19 @@ def plot_sampled_images(model=None, data=None, boundaries=None, samples_per_dime
                        j * image_size + j * offset: (j + 1) * image_size + j * offset,
                        :] = image_sample
 
-        figure = (figure*255)
-        cv2.imwrite(filename + '.png', figure)
+        figure = np.array(figure*255, dtype=np.uint8)
+
+        plt.figure(figsize=(15,15))
+        image = cv2.cvtColor(figure, cv2.COLOR_BGR2RGB)
+        plt.imshow(image)
+        if figure_title:
+            plt.title(figure_title, fontsize=20)
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel('Z1', fontsize=20)
+        plt.ylabel('Z2', fontsize=20)
+        plt.savefig(filename, bbox_inches="tight")
+        plt.close()
 
 ########################################
 ############# EVAL METRICS #############

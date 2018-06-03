@@ -293,17 +293,21 @@ def main():
     # visualise the learnt data manifold in the latent space
     print("Plot Reconstructed images sampeld from a standart Normal\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
+    figure_title = "Manifold Visualisation"
     plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], 
-                        image_channels=data_dimensions[1], filename=os.path.join(args.out, "latent_samples"))
+                        image_channels=data_dimensions[1], filename=os.path.join(args.out, "latent_samples"), 
+                        figure_title=figure_title)
 
     print("Generating data for retrospective model evaluation\n")
     for model_name in list(filter(lambda name : "final" not in name, os.listdir(models_folder))):
         serializers.load_npz(os.path.join(models_folder, model_name), model)
         filename = model_name.replace(".model", "")
 
+        figure_title = "Manifold Visualisation for epoch {0}".format(filename)
         data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
         plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], 
-                            image_channels=data_dimensions[1], filename=os.path.join(manifold_folder, filename), args=args)
+                            image_channels=data_dimensions[1], filename=os.path.join(manifold_folder, filename),
+                            figure_title = figure_title)
 
 
         data = np.append(test, unseen, axis=0)
