@@ -85,7 +85,7 @@ def plot_loss_curves(stats=None, args=None):
             continue
         plt.plot(range(args.epoch),stats[channel], marker='x', color=colors[i], label=channel)
     
-    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1), fontsize=14)
     plt.savefig(os.path.join(args.out + "losses"), bbox_inches="tight")
 
     # validation label loss
@@ -93,7 +93,7 @@ def plot_loss_curves(stats=None, args=None):
     plt.grid()
     plt.plot(range(args.epoch),stats['valid_label_loss'], marker='x', color='g', label='valid_label_loss')
     
-    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1), fontsize=14)
     plt.savefig(os.path.join(args.out + "label_loss"), bbox_inches="tight")
 
     # validation label accuracy
@@ -101,7 +101,7 @@ def plot_loss_curves(stats=None, args=None):
     plt.grid()
     plt.plot(range(args.epoch),stats['valid_label_acc'], marker='x', color='r', label='valid_label_acc')
     
-    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1), fontsize=14)
     plt.savefig(os.path.join(args.out + "label_acc"), bbox_inches="tight")
 
     # training label accuracy
@@ -109,7 +109,7 @@ def plot_loss_curves(stats=None, args=None):
     plt.grid()
     plt.plot(range(args.epoch),stats['train_accs'], marker='x', color='b', label='train_accs')
     
-    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1), fontsize=14)
     plt.savefig(os.path.join(args.out + "train_label_acc"), bbox_inches="tight")
 
     plt.close()
@@ -212,7 +212,7 @@ def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=No
             latent_all = np.append(latent_all, latent, axis=0)
         else:
             latent_all = latent
-    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
 
     # plot bounding box for the visualised manifold
     # boundaries are [[min_x, min_y],[max_x, max_y]]
@@ -238,7 +238,7 @@ def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=No
         Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
         plt.contour(X, Y, Z, colors='r')
         plt.title("mu[0]:{0}; mu[1]:{1}\ncov[0,0]:{2}; cov[1,1]:{3}\ncov[0,1]:{4}".format(round(mean[0],2), 
-                  round(mean[1],2), round(cov[0,0],2), round(cov[1,1],2), round(cov[0,1],2)))
+                  round(mean[1],2), round(cov[0,0],2), round(cov[1,1],2), round(cov[0,1],2)), fontweight="bold", fontsize=14)
         plt.savefig(filename + "_overlayed", bbox_inches="tight")
     plt.close()
 
@@ -258,7 +258,7 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
         latent = latent.data
         latent_all.append(latent)
         plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
-    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
 
     # plot bounding box for the visualised manifold
     # boundaries are [[min_x, min_y],[max_x, max_y]]
@@ -288,7 +288,7 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
             X, Y = np.meshgrid(x, y)
             Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
             plt.contour(X, Y, Z, colors=colors[label]["dist"])
-        plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+        plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
         plt.savefig(filename + "_overlayed", bbox_inches="tight")
     plt.close()
 
@@ -315,7 +315,7 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
                     Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
                     plt.contour(X, Y, Z, colors=colors[label]["dist"])
             
-            plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+            plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
 
             # plot bounding box for the visualised manifold
             # boundaries are [[min_x, min_y],[max_x, max_y]]
@@ -347,7 +347,7 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
             X, Y = np.meshgrid(x, y)
             Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
             plt.contour(X, Y, Z, colors=colors[label]["dist"])
-            plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+            plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
 
         # plot bounding box for the visualised manifold
         # boundaries are [[min_x, min_y],[max_x, max_y]]
@@ -367,7 +367,7 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
 # sample datapoints under the prior normal distribution and reconstruct
 # samples_per_dimension has to be even
 def plot_sampled_images(model=None, data=None, boundaries=None, samples_per_dimension=16, 
-                        image_size=100, offset=10, image_channels=3, filename=None, args=None):
+                        image_size=100, offset=10, image_channels=3, filename=None, figure_title=None):
 
         rows = image_size * samples_per_dimension + offset * samples_per_dimension
         columns = image_size * samples_per_dimension + offset * samples_per_dimension
@@ -437,10 +437,10 @@ def hinton_diagram(data=None, label=None, args=None):
         
         # Customize minor tick labels
         ax.set_xticks([0,1,2,3],      minor=False)
-        ax.set_xticklabels(['pc1','pc2','pc3','pc4'], minor=False)
+        ax.set_xticklabels(['pc1','pc2','pc3','pc4'], minor=False, fontsize=14)
 
         ax.set_yticks([0,1,2,3],      minor=False)
-        ax.set_yticklabels(['z1','z2','z3','z4'], minor=False)
+        ax.set_yticklabels(['z1','z2','z3','z4'], minor=False, fontsize=14)
         
         scatter = np.cov(data)
         eig_val, eig_vec = np.linalg.eig(scatter)
@@ -469,11 +469,12 @@ def hinton_diagram(data=None, label=None, args=None):
             ax.add_patch(rect)
             ax.text(y, x, format(c, fmt),
                      horizontalalignment="center",
-                     color=text_color)
+                     color=text_color,
+                     fontsize=14, fontweight='bold')
 
         ax.autoscale_view()
         ax.invert_yaxis()
-        ax.set_title(label, fontweight="bold", fontsize=15)
+        ax.set_title(label, fontweight="bold", fontsize=14)
         plt.savefig(os.path.join(args.out, label + '_Hinton.png'))
         plt.close()
 
@@ -545,7 +546,7 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
                 x = latent[:, int(key)]
                 y = np.zeros((1, len(latent)))
                 plt.scatter(x.data, y, alpha=0.75, marker='o', label=label + "_data")
-                plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
                 plt.grid()
                 plt.savefig(os.path.join(args.out, label + "_group_" + key + "_testime_distrobutions"), bbox_inches="tight")
                 plt.close()
@@ -613,29 +614,30 @@ def plot_confusion_matrix(cms=None, group_classes=None,
         cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
         cax = subfig.imshow(cm, interpolation='nearest', cmap=cmap)
-        subfig.set_title(i)
+        subfig.set_title(i, fontweight="bold", fontsize=14)
         fig.colorbar(cax, ax=subfig)
         
         subfig.set_xticks(range(len(pred)), minor=False)
-        subfig.set_xticklabels(pred, minor=False)
+        subfig.set_xticklabels(pred, minor=False, fontsize=14)
         subfig.set_yticks(range(len(true)), minor=False)
-        subfig.set_yticklabels(true, minor=False)
+        subfig.set_yticklabels(true, minor=False, fontsize=14)
 
         fmt = '.2f'
         thresh = cm.max() / 2.
         for x, y in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
 
-            size = 0.9
+            size = 1.0
             rect = plt.Rectangle([y - size / 2, x - size / 2], size, size,
                                      facecolor=(0,0,0,0))
             subfig.add_patch(rect)
             subfig.text(y, x, format(cm_norm[x, y], fmt),
                      horizontalalignment="center",
-                     color="white" if cm[x, y] > thresh else "black")
+                     color="white" if cm[x, y] > thresh else "black",
+                     fontsize=14, fontweight='bold')
 
         subfig.autoscale_view()
-        subfig.set_ylabel('True label')
-        subfig.set_xlabel('Predicted label')
+        subfig.set_ylabel('True label', fontsize=12)
+        subfig.set_xlabel('Predicted label', fontsize=12)
     fig.tight_layout()
     plt.savefig(os.path.join(args.out, title + "_confusion_matrices" + '.png'))
     plt.close()
