@@ -1,7 +1,19 @@
+#!/usr/bin/env python
+"""
+title           :data_generator.py
+description     :Loads the image dataset contained in train,unseen,ulabelled folders under data/.
+author          :Yordan Hristov <yordan.hristov@ed.ac.uk
+date            :05/2018
+python_version  :2.7.14
+==============================================================================
+"""
+
 import os
 import cv2
 import numpy as np
+
 import chainer
+
 from config_parser import ConfigParser
 
 class DataGenerator(object):
@@ -11,7 +23,6 @@ class DataGenerator(object):
     def generate_dataset(self, args):
         if args.data == "mnist":
             # Load the MNIST dataset
-            # train, test = chainer.datasets.get_mnist(withlabel=False)
             train, test = chainer.datasets.get_mnist()
 
             data_dimensions = [28,28]
@@ -71,8 +82,8 @@ class DataGenerator(object):
                     test_indecies = filter(lambda x : x not in train_indecies, range(number_of_images))
 
                     print("Processing TRAINING folder {0}/{1} with {2} images".format(folder_list_train.index(folder), 
-                                                                             len(folder_list_train), 
-                                                                             len(image_list)))
+                                                                                      len(folder_list_train), 
+                                                                                      len(image_list)))
 
                     if folder in folders_for_training:
                         for image_name in np.take(image_list, train_indecies, axis=0):
@@ -94,8 +105,8 @@ class DataGenerator(object):
                         unseen_indecies = np.random.choice(range(number_of_images), unseen_n, replace=False)                    
 
                         print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
-                                                                                 len(folder_list_unseen), 
-                                                                                 len(image_list)))
+                                                                                        len(folder_list_unseen), 
+                                                                                        len(image_list)))
 
                         for image_name in np.take(image_list, unseen_indecies, axis=0):
                             unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))
@@ -119,8 +130,8 @@ class DataGenerator(object):
                     test_indecies = filter(lambda x : x not in train_indecies, range(number_of_images))
 
                     print("Processing TRAINING folder {0}/{1} with {2} images".format(folder_list_train.index(folder), 
-                                                                             len(folder_list_train), 
-                                                                             len(image_list)))
+                                                                                      len(folder_list_train), 
+                                                                                      len(image_list)))
 
                     for image_name in np.take(image_list, train_indecies, axis=0):
                             train.append(cv2.imread(folder_name_train+folder+"/"+image_name, 1))
@@ -146,13 +157,18 @@ class DataGenerator(object):
 
                 # unlabelled datapoints
                 if os.path.exists(folder_name_unlabelled):
-                    for folder in os.listdir(folder_name_unlabelled):
+                    folder_list_unlabelled = os.listdir(folder_name_unlabelled)
+                    for folder in folder_list_unlabelled:
                         image_list = os.listdir(folder_name_unlabelled + folder)
                         number_of_images = len(image_list)
                         train_n = int(data_split * number_of_images)
                         test_n = number_of_images - train_n
                         train_indecies = np.random.choice(range(number_of_images), train_n, replace=False)
                         test_indecies = filter(lambda x : x not in train_indecies, range(number_of_images))
+
+                        print("Processing UNLABELLED folder {0}/{1} with {2} images".format(folder_list_unlabelled.index(folder), 
+                                                                                            len(folder_list_unlabelled), 
+                                                                                            len(image_list)))
 
                         for image_name in np.take(image_list, train_indecies, axis=0):
                                 train.append(cv2.imread(folder_name_unlabelled+folder+"/"+image_name, 1))
@@ -184,8 +200,8 @@ class DataGenerator(object):
                         unseen_indecies = np.random.choice(range(number_of_images), unseen_n, replace=False)                                        
 
                         print("Processing UNSEEN folder {0}/{1} with {2} images".format(folder_list_unseen.index(folder), 
-                                                                                 len(folder_list_unseen), 
-                                                                                 len(image_list)))
+                                                                                        len(folder_list_unseen), 
+                                                                                        len(image_list)))
 
                         for image_name in np.take(image_list, unseen_indecies, axis=0):
                             unseen.append(cv2.imread(folder_name_unseen+folder+"/"+image_name, 1))#

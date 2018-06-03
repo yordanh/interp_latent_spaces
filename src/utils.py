@@ -1,4 +1,13 @@
-#!/usr/bin/env pytho
+#!/usr/bin/env python
+"""
+title           :utils.py
+description     :Utility functions to be used for result processing after the model training phase.
+author          :Yordan Hristov <yordan.hristov@ed.ac.uk
+date            :05/2018
+python_version  :2.7.14
+==============================================================================
+"""
+
 import os
 import numpy as np
 from scipy.stats import multivariate_normal
@@ -228,7 +237,8 @@ def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=No
         X, Y = np.meshgrid(x, y)
         Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
         plt.contour(X, Y, Z, colors='r')
-        plt.title("mu[0]:{0}; mu[1]:{1}\ncov[0,0]:{2}; cov[1,1]:{3}\ncov[0,1]:{4}".format(round(mean[0],2), round(mean[1],2), round(cov[0,0],2), round(cov[1,1],2), round(cov[0,1],2)))
+        plt.title("mu[0]:{0}; mu[1]:{1}\ncov[0,0]:{2}; cov[1,1]:{3}\ncov[0,1]:{4}".format(round(mean[0],2), 
+                  round(mean[1],2), round(cov[0,0],2), round(cov[1,1],2), round(cov[0,1],2)))
         plt.savefig(filename + "_overlayed", bbox_inches="tight")
     plt.close()
 
@@ -461,7 +471,8 @@ def cosine(x=None,y=None):
     return np.dot(x,y) / float(np.linalg.norm(x) * np.linalg.norm(y))
 
 
-def test_time_classification(data_test=None, data_all=None, labels=None, unseen_labels=None, groups=None, boundaries=None, model=None, colors=None, args=None):
+def test_time_classification(data_test=None, data_all=None, labels=None, unseen_labels=None, groups=None, 
+                             boundaries=None, model=None, colors=None, args=None):
 
     classifiers = {}
     stds = {}
@@ -474,8 +485,6 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
         for label in groups[key]:
             indecies = [i for i, x in enumerate(labels) if x == label]
             filtered_data = chainer.Variable(data_test.take(indecies, axis=0))
-            if len(filtered_data.data) == 0:
-                print(key, label)
             latent = model.get_latent(filtered_data)
             latent = latent.data
 
@@ -490,7 +499,6 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
 
         # intermediate unknown distributions
         classifier_tuples = zip(classifiers[key], classifiers[key][1:])
-        print(classifier_tuples)
 
         # guarding unknown distributions
         lefmost = classifiers[key][0]
@@ -499,7 +507,8 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
         classifiers[key] += [{"label": "unknown", "mean": boundaries[0][int(key)], "cov": lefmost["cov"]}]
         classifiers[key] += [{"label": "unknown", "mean": boundaries[1][int(key)], "cov": rightmost["cov"]}]
 
-        classifiers[key] += [{"label": "unknown", "mean": 0.5 * (cl1["mean"] + cl2["mean"]), "cov": 0.5 * (cl1["cov"] + cl2["cov"])} for (cl1, cl2) in classifier_tuples]
+        classifiers[key] += [{"label": "unknown", "mean": 0.5 * (cl1["mean"] + cl2["mean"]), "cov": 0.5 * (cl1["cov"] + \
+                             cl2["cov"])} for (cl1, cl2) in classifier_tuples]
 
 
     all_latent = model.get_latent_mu(data_all)
@@ -518,7 +527,8 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
                 plt.figure(figsize=(10,10))
 
                 for cl in classifiers[key]:
-                    plt.plot(range, norm.pdf(range, cl["mean"], cl["cov"]), color=colors["singular"][cl["label"]]["dist"], label=cl["label"])
+                    color = colors["singular"][cl["label"]]["dist"]
+                    plt.plot(range, norm.pdf(range, cl["mean"], cl["cov"]), color=color, label=cl["label"])
                     plt.plot([cl["mean"], cl["mean"]], [0, norm.pdf([cl["mean"]], cl["mean"], cl["cov"])], color='r', linestyle="--")
                     plt.xlim(boundaries[0][int(key)] - 2, boundaries[1][int(key)] + 2)
                 x = latent[:, int(key)]
@@ -531,7 +541,7 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
 
     for key in sorted(classifiers.keys()):
         points = all_latent[:, int(key)]
-        stds[key] = np.array([[{"label": c["label"], "value": abs(c["mean"] - point.data) / c["cov"]} for c in classifiers[key]] for point in points])
+        stds[key] = [[{"label": c["label"], "value": abs(c["mean"] - point.data) / c["cov"]} for c in classifiers[key]] for point in points]
         stds[key] = map(lambda point_stds : sorted(point_stds, key=lambda k: k["value"])[0]["label"], stds[key])
 
     predicted_labels = np.array([stds[key] for key in sorted(stds.keys())])

@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+"""
+title           :net.py
+description     :Contains definitions of all the models used in the experiments.
+author          :Yordan Hristov <yordan.hristov@ed.ac.uk
+date            :05/2018
+python_version  :2.7.14
+==============================================================================
+"""
+
 import six
 
 import chainer
@@ -5,7 +15,6 @@ import chainer.functions as F
 from chainer.functions.loss.vae import gaussian_kl_divergence
 import chainer.links as L
 from chainer.backends.cuda import get_device_from_array
-import numpy
 import cupy
 
 
@@ -210,8 +219,8 @@ class Conv_VAE(chainer.Chain):
                     n = self.groups_len[i] - 1
 
                     # certain labels should not contribute to the calculation of the label loss values
-                    fixed_labels = (cupy.tile(cupy.array([1] + [-100] * n), (batchsize, 1)) * mask_flipped[:, numpy.newaxis])
-                    out_labels[i] = out_labels[i] * mask[:, numpy.newaxis] + fixed_labels
+                    fixed_labels = (cupy.tile(cupy.array([1] + [-100] * n), (batchsize, 1)) * mask_flipped[:, cupy.newaxis])
+                    out_labels[i] = out_labels[i] * mask[:, cupy.newaxis] + fixed_labels
 
                     label_acc += F.accuracy(out_labels[i], in_labels[i])
                     label_loss += F.softmax_cross_entropy(out_labels[i], in_labels[i]) / (k * batchsize)

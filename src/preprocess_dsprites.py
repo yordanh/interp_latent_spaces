@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+"""
+title           :preprocess_dsprites.py
+description     :Filters and labels the dSprites dataset according to the user preferences and labels in config.json.
+				:Adds color.
+author          :Yordan Hristov <yordan.hristov@ed.ac.uk
+date            :05/2018
+python_version  :2.7.14
+==============================================================================
+"""
+
 import numpy as np
 import cv2
 import math
@@ -7,6 +18,7 @@ import os
 import shutil
 import itertools
 import copy
+
 from config_parser import ConfigParser
 
 parser = argparse.ArgumentParser(description='Process the dSprited dataset.')
@@ -29,8 +41,8 @@ def prep_dir(folder_name):
 		os.makedirs(folder_name)
 
 
+# extracts images for a single label - e.g big and blue in the label group big_blue
 def extract(folder_name=None, labels=None, args=None, latent_spec=None, cutoff=None, image_size=None, verbose=False):
-
 	print("Extracting images for " + folder_name + str(labels))
 	indecies = []
 	for i, c in enumerate(data['latents_classes']):
@@ -70,10 +82,10 @@ def extract(folder_name=None, labels=None, args=None, latent_spec=None, cutoff=N
 		
 		if i % 100 == 0:
 			print("{0} images have been processed so far.".format(i))
-
 	print(label_counters)
 
 
+# extracts symbols for a label group - e.g big_blue
 def extract_label_groups(label_groups=None, unseen=None, latent_spec=None, mappings=None, folder_name=None, args=None):
 	# build up the labels for all objects - take the combinations of the
 	# lists in label_groups; color is a special case, since we add it - it is
@@ -98,7 +110,8 @@ def extract_label_groups(label_groups=None, unseen=None, latent_spec=None, mappi
 			
 			if unseen != None:
 				labels = filter(lambda label : label in unseen, labels)
-			extract(folder_name=folder_name, labels=labels, args=args, latent_spec=revised_latent_spec, image_size=args.image_size, cutoff=args.cutoff)
+			extract(folder_name=folder_name, labels=labels, args=args, latent_spec=revised_latent_spec, 
+					image_size=args.image_size, cutoff=args.cutoff)
 
 
 	# # composite labels
@@ -110,7 +123,9 @@ def extract_label_groups(label_groups=None, unseen=None, latent_spec=None, mappi
 			os.makedirs(object_folder_name)
 			revised_latent_spec = revise_latent_spec(copy.deepcopy(latent_spec), labels, mappings)
 			label_counters["_".join(labels)] = 0
-			extract(folder_name=folder_name, labels=labels, args=args, latent_spec=revised_latent_spec, image_size=args.image_size, cutoff=args.cutoff)
+			extract(folder_name=folder_name, labels=labels, args=args, latent_spec=revised_latent_spec, 
+					image_size=args.image_size, cutoff=args.cutoff)
+
 
 # revise the latent class specification, depending on the 
 # given labels; we know what labels map to what classes
@@ -202,6 +217,8 @@ if __name__ == "__main__":
 
 	specs = config_parser.parse_specs()
 
-	extract_label_groups(label_groups=specs["train"], folder_name=folder_name+"train/", latent_spec=latent_spec, mappings=mappings, args=args)
+	extract_label_groups(label_groups=specs["train"], folder_name=folder_name+"train/", latent_spec=latent_spec, 
+						 mappings=mappings, args=args)
 	for unseen_spec in specs["unseen"]:
-		extract_label_groups(label_groups=unseen_spec[1], unseen=unseen_spec[0], folder_name=folder_name+"unseen/", latent_spec=latent_spec, mappings=mappings, args=args)
+		extract_label_groups(label_groups=unseen_spec[1], unseen=unseen_spec[0], folder_name=folder_name+"unseen/", 
+							 latent_spec=latent_spec, mappings=mappings, args=args)

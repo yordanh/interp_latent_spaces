@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+"""
+title           :config_parser.py
+description     :Parses the json config file into a dictionary.
+				:Adds color.
+author          :Yordan Hristov <yordan.hristov@ed.ac.uk
+date            :05/2018
+python_version  :2.7.14
+==============================================================================
+"""
+
 import json
 
 class ConfigParser(object):

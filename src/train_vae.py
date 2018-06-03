@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+"""
+title           :train_vae.py
+description     :Contains the main trainign loop and test time evaluation of the model.
+author          :Yordan Hristov <yordan.hristov@ed.ac.uk
+date            :05/2018
+python_version  :2.7.14
+==============================================================================
+"""
+
 import argparse
 import os
 import cv2
@@ -66,7 +75,9 @@ def main():
     print('###############################################\n')
 
     generator = data_generator.DataGenerator()
-    train, train_labels, train_concat, train_vectors, test, test_labels, test_concat, test_vectors, unseen, unseen_labels, unseen_concat, unseen_vectors, groups = generator.generate_dataset(args)
+    train, train_labels, train_concat, train_vectors, test, test_labels, test_concat, test_vectors, unseen,\
+    unseen_labels, unseen_concat, unseen_vectors, groups = generator.generate_dataset(args)
+    
     data_dimensions = train.shape
     print('\n###############################################')
     print("DATA_LOADED")
@@ -82,7 +93,8 @@ def main():
     print("# Unseen labels: \t{0}".format(set(unseen_labels)))
     print('###############################################\n')
 
-    stats = {'train_loss': [], 'train_accs': [], 'valid_loss': [], 'valid_rec_loss': [], 'valid_label_loss': [], 'valid_label_acc': [], 'valid_kl': []}
+    stats = {'train_loss': [], 'train_accs': [], 'valid_loss': [], 'valid_rec_loss': [], 'valid_label_loss': [],\
+             'valid_label_acc': [], 'valid_kl': []}
 
     models_folder = os.path.join(args.out, "models")
     manifold_folder = os.path.join(args.out, "manifold_gif")
@@ -109,7 +121,6 @@ def main():
         model.to_gpu()
 
     # Setup an optimizer
-    # optimizer = chainer.optimizers.RMSprop(lr=0.001, alpha=0.9, eps=1e-7)
     optimizer = chainer.optimizers.Adam()
     optimizer.setup(model)
 
@@ -175,14 +186,15 @@ def main():
             stats['valid_label_acc'].append(np.mean(to_cpu(test_accs)))
             stats['valid_kl'].append(np.mean(to_cpu(test_kl)))
     
-            print("Epoch: {0} \t T_Loss: {1} \t V_Loss: {2} \t V_Rec_Loss: {3} \t V_Label_Loss: {4} \t V_KL: {6} \t T_Acc: {7} \t V_Acc: {5}".format(train_iter.epoch, 
-                                                                                                                            round(stats['train_loss'][-1], 2),
-                                                                                                                            round(stats['valid_loss'][-1], 2),
-                                                                                                                            round(stats['valid_rec_loss'][-1], 2),
-                                                                                                                            round(stats['valid_label_loss'][-1], 2),
-                                                                                                                            round(stats['valid_label_acc'][-1], 2),
-                                                                                                                            round(stats['valid_kl'][-1], 2),
-                                                                                                                            round(stats['train_accs'][-1], 2)))
+            print(("Epoch: {0} \t T_Loss: {1} \t V_Loss: {2} \t V_Rec_Loss: {3} \t V_Label_Loss: {4} \t " + \
+                  "V_KL: {6} \t T_Acc: {7} \t V_Acc: {5}").format(train_iter.epoch, 
+                                                                round(stats['train_loss'][-1], 2),
+                                                                round(stats['valid_loss'][-1], 2),
+                                                                round(stats['valid_rec_loss'][-1], 2),
+                                                                round(stats['valid_label_loss'][-1], 2),
+                                                                round(stats['valid_label_acc'][-1], 2),
+                                                                round(stats['valid_kl'][-1], 2),
+                                                                round(stats['train_accs'][-1], 2)))
             train_losses = []
             train_accs = []
         # --------------------- epoch until here --------------------- 
@@ -222,7 +234,8 @@ def main():
 
     print("Test time Classification\n")
     tmp_labels = test_time_classification(data_test=np.repeat(test, 2, axis=0), data_all=np.append(test, unseen, axis=0), 
-                                          labels=test_labels, unseen_labels=unseen_labels, groups=groups, boundaries=boundaries, model=model, colors=colors, args=args)
+                                          labels=test_labels, unseen_labels=unseen_labels, groups=groups, 
+                                          boundaries=boundaries, model=model, colors=colors, args=args)
 
     print("Label Analisys\n")
     true_labels = np.append(test_labels, unseen_labels, axis=0)
@@ -242,14 +255,18 @@ def main():
     print("Plot Latent Testing Distribution for Singular Labels\n")
     data = np.repeat(test, 2, axis=0)
     plot_labels = test_labels
-    plot_separate_distributions(data=data, labels=plot_labels, groups=groups, boundaries=boundaries, colors=colors["singular"], model=model, filename=os.path.join(args.out, "singular_separate"))
-    plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, filename=os.path.join(args.out, "singular_together"))
+    plot_separate_distributions(data=data, labels=plot_labels, groups=groups, boundaries=boundaries, colors=colors["singular"], 
+                                model=model, filename=os.path.join(args.out, "singular_separate"))
+    plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], 
+                              model=model, filename=os.path.join(args.out, "singular_together"))
 
     print("Plot Latent Testing Distribution for Singular Labels + Unseen Distribution\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
     plot_labels = np.append(test_labels, unseen_labels, axis=0)
-    plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, filename=os.path.join(args.out, "singular_separate_unseen"))
-    plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], model=model, filename=os.path.join(args.out, "singular_together_unseen"))
+    plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], 
+                                model=model, filename=os.path.join(args.out, "singular_separate_unseen"))
+    plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], 
+                              model=model, filename=os.path.join(args.out, "singular_together_unseen"))
 
     if args.labels == "composite":
         print("Plot Latent Testing Distribution for Composite Labels\n")
@@ -257,22 +274,27 @@ def main():
         data = test
         test_labels_tmp = test_labels.reshape(len(test_labels) / 2, 2)
         plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
-        plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, filename=os.path.join(args.out, "composite_separate"))
-        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, filename=os.path.join(args.out, "composite_together"))
+        plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], 
+                                    model=model, filename=os.path.join(args.out, "composite_separate"))
+        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], 
+                                  model=model, filename=os.path.join(args.out, "composite_together"))
 
         print("Plot Latent Testing Distribution for Composite Labels + Unseen Distribution\n")
         data = np.append(test, unseen, axis=0)
         test_labels_tmp = np.append(test_labels, unseen_labels, axis=0)
         test_labels_tmp = test_labels_tmp.reshape(len(test_labels_tmp) / 2, 2)
         plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
-        plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, filename=os.path.join(args.out, "composite_separate_unseen"))
-        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, filename=os.path.join(args.out, "composite_together_unseen"))
+        plot_separate_distributions(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], 
+                                    model=model, filename=os.path.join(args.out, "composite_separate_unseen"))
+        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], 
+                                  model=model, filename=os.path.join(args.out, "composite_together_unseen"))
 
 
     # visualise the learnt data manifold in the latent space
     print("Plot Reconstructed images sampeld from a standart Normal\n")
     data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
-    plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], image_channels=data_dimensions[1], filename=os.path.join(args.out, "latent_samples"))
+    plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], 
+                        image_channels=data_dimensions[1], filename=os.path.join(args.out, "latent_samples"))
 
     print("Generating data for retrospective model evaluation\n")
     for model_name in list(filter(lambda name : "final" not in name, os.listdir(models_folder))):
@@ -280,8 +302,8 @@ def main():
         filename = model_name.replace(".model", "")
 
         data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
-        plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], image_channels=data_dimensions[1], 
-                            filename=os.path.join(manifold_folder, filename), args=args)
+        plot_sampled_images(model=model, data=data, boundaries=boundaries, image_size=data_dimensions[-1], 
+                            image_channels=data_dimensions[1], filename=os.path.join(manifold_folder, filename), args=args)
 
 
         data = np.append(test, unseen, axis=0)
@@ -295,13 +317,15 @@ def main():
     samples = [x.replace(".png", "") for x in os.listdir(manifold_folder)]
     samples.sort(key=int)
     samples = [os.path.join(manifold_folder, x + ".png") for x in samples]
-    subprocess.call(["convert", "-loop", "5", "-delay",  "100"] + samples + [os.path.join(manifold_folder, "samples_animation.gif")])
+    result_name = os.path.join(manifold_folder, "samples_animation.gif")
+    subprocess.call(["convert", "-loop", "5", "-delay",  "100"] + samples + [result_name])
 
     print("Making the Composite Label Distribution GIF\n")
     distr = [x.replace(".png", "") for x in os.listdir(distr_folder)]
     distr.sort(key=int)
     distr = [os.path.join(distr_folder, x + ".png") for x in distr]
-    subprocess.call(["convert", "-loop", "5", "-delay",  "100"] + distr + [os.path.join(distr_folder, "distr_animation.gif")])
+    result_name = os.path.join(distr_folder, "distr_animation.gif")
+    subprocess.call(["convert", "-loop", "5", "-delay",  "100"] + distr + [result_name])
 
 if __name__ == '__main__':
     main()
