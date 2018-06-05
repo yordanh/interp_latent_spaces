@@ -36,27 +36,29 @@ def clear_last_results(folder_name=None):
     leftover_folders = list(filter(lambda filename : filename != "models", os.listdir(folder_name)))
     map(lambda x : shutil.rmtree(folder_name + x), leftover_folders)
 
-    os.mkdir(folder_name + "manifold_gif")
-    os.mkdir(folder_name + "distr_gif")
+    os.mkdir(folder_name + "gifs")
+    os.mkdir(folder_name + "gifs/manifold_gif")
+    os.mkdir(folder_name + "gifs/scatter_gif")
+    os.mkdir(folder_name + "scatter")
+    os.mkdir(folder_name + "eval")
 
 
 # for a given set of example images, calculate their reconstructions
-def perform_reconstructions(model=None, train=None, test=None, unseen=None, args=None):
-    no_images = 16
+def perform_reconstructions(model=None, train=None, test=None, unseen=None, no_images=None, name_suffix=None, args=None):
     train_ind = np.linspace(0, len(train) - 1, no_images, dtype=int)
     x = chainer.Variable(np.asarray(train[train_ind]))
     with chainer.using_config('train', False), chainer.no_backprop_mode():
         x1 = model(x)
-    save_images(x.data, no_images, os.path.join(args.out, 'train'), args=args)
-    save_images(x1.data, no_images, os.path.join(args.out, 'train_reconstructed'), args=args)
+    save_images(x.data, no_images, os.path.join(args.out, 'train_' + name_suffix), args=args)
+    save_images(x1.data, no_images, os.path.join(args.out, 'train_' + name_suffix + "_rec"), args=args)
 
     # reconstruct testing examples
     test_ind = np.linspace(0, len(test) - 1, no_images, dtype=int)
     x = chainer.Variable(np.asarray(test[test_ind]))
     with chainer.using_config('train', False), chainer.no_backprop_mode():
         x1 = model(x)
-    save_images(x.data, no_images, os.path.join(args.out, 'test'), args=args)
-    save_images(x1.data, no_images, os.path.join(args.out, 'test_reconstructed'), args=args)
+    save_images(x.data, no_images, os.path.join(args.out, 'test_' + name_suffix), args=args)
+    save_images(x1.data, no_images, os.path.join(args.out, 'test_' + name_suffix + "_rec"), args=args)
 
     # reconstruct unseen examples
     if len(unseen) != 0:
@@ -64,14 +66,14 @@ def perform_reconstructions(model=None, train=None, test=None, unseen=None, args
         x = chainer.Variable(np.asarray(unseen[unseen_ind]))
         with chainer.using_config('train', False), chainer.no_backprop_mode():
             x1 = model(x)
-        save_images(x.data, no_images, os.path.join(args.out, 'unseen'), args=args)
-        save_images(x1.data, no_images, os.path.join(args.out, 'unseen_reconstructed'), args=args)
+        save_images(x.data, no_images, os.path.join(args.out, 'unseen_' + name_suffix), args=args)
+        save_images(x1.data, no_images, os.path.join(args.out, 'unseen_' + name_suffix + "_rec"), args=args)
 
     # draw images from randomly sampled z under a 'vanilla' normal distribution
     z = chainer.Variable(
         np.random.normal(0, 1, (no_images, args.dimz)).astype(np.float32))
     x = model.decode(z)
-    save_images(x.data, no_images, os.path.join(args.out, 'sampled'), args=args)
+    save_images(x.data, no_images, os.path.join(args.out, 'sampled_' + name_suffix), args=args)
 
 
 # plot and save loss and accuracy curves
@@ -83,35 +85,41 @@ def plot_loss_curves(stats=None, args=None):
     for i, channel in enumerate(stats):
         if channel == "valid_label_loss" or channel == "valid_label_acc" or channel == "train_accs":
             continue
-        plt.plot(range(args.epoch),stats[channel], marker='x', color=colors[i], label=channel)
-    
+        plt.plot(range(args.epoch_labelled + args.epoch_unlabelled),stats[channel], marker='x', color=colors[i], label=channel)
+    plt.xlabel("Epoch #", fontsize=14)
+    plt.ylabel("Loss", fontsize=14)
     plt.legend(loc="upper left", bbox_to_anchor=(1, 1), fontsize=14)
     plt.savefig(os.path.join(args.out + "losses"), bbox_inches="tight")
+    plt.close()
 
     # validation label loss
     plt.figure(figsize=(10, 10))
     plt.grid()
-    plt.plot(range(args.epoch),stats['valid_label_loss'], marker='x', color='g', label='valid_label_loss')
-    
+    plt.plot(range(args.epoch_labelled + args.epoch_unlabelled),stats['valid_label_loss'], marker='x', color='g', label='valid_label_loss')
+    plt.xlabel("Epoch #", fontsize=14)
+    plt.ylabel("Loss", fontsize=14)
     plt.legend(loc="upper left", bbox_to_anchor=(1, 1), fontsize=14)
     plt.savefig(os.path.join(args.out + "label_loss"), bbox_inches="tight")
+    plt.close()
 
     # validation label accuracy
     plt.figure(figsize=(10, 10))
     plt.grid()
-    plt.plot(range(args.epoch),stats['valid_label_acc'], marker='x', color='r', label='valid_label_acc')
-    
+    plt.plot(range(args.epoch_labelled + args.epoch_unlabelled),stats['valid_label_acc'], marker='x', color='r', label='valid_label_acc')
+    plt.xlabel("Epoch #", fontsize=14)
+    plt.ylabel("Loss", fontsize=14)
     plt.legend(loc="upper left", bbox_to_anchor=(1, 1), fontsize=14)
-    plt.savefig(os.path.join(args.out + "label_acc"), bbox_inches="tight")
+    plt.savefig(os.path.join(args.out + "valid_label_acc"), bbox_inches="tight")
+    plt.close()
 
     # training label accuracy
     plt.figure(figsize=(10, 10))
     plt.grid()
-    plt.plot(range(args.epoch),stats['train_accs'], marker='x', color='b', label='train_accs')
-    
+    plt.plot(range(args.epoch_labelled + args.epoch_unlabelled),stats['train_accs'], marker='x', color='b', label='train_accs')
+    plt.xlabel("Epoch #", fontsize=14)
+    plt.ylabel("Loss", fontsize=14)
     plt.legend(loc="upper left", bbox_to_anchor=(1, 1), fontsize=14)
     plt.savefig(os.path.join(args.out + "train_label_acc"), bbox_inches="tight")
-
     plt.close()
 
 
@@ -147,6 +155,8 @@ def save_images(x=None, no_images=None, filename=None, args=None):
         if xi.shape[-1] == 1:
             xi = xi.reshape(xi.shape[:-1])
 
+        ai.set_xticks([])
+        ai.set_yticks([])
         image = ai.imshow(cv2.cvtColor(xi, cv2.COLOR_BGR2RGB))
     fig.savefig(filename)
 
@@ -160,7 +170,7 @@ def attach_colors(labels=None, composite=True):
     result = {"singular":{}, "composite":{}}
 
     counter = 0
-    for label in set(labels):
+    for label in sorted(set(labels)):
         if label in result["singular"]:
             continue
         else:
@@ -177,7 +187,7 @@ def attach_colors(labels=None, composite=True):
         labels = np.array(["_".join(x) for x in labels])
 
         counter = 0
-        for label in set(labels):
+        for label in sorted(set(labels)):
             if label in result["composite"]:
                 continue
             else:
@@ -198,7 +208,7 @@ def plot_overall_distribution(data=None, labels=None, boundaries=None, colors=No
     # scatter plot all the data points in the latent space
     plt.figure(figsize=(10, 10))
     concise_colors = list(set(labels))
-    for label in set(labels):
+    for label in sorted(set(labels)):
         indecies = [i for i, x in enumerate(labels) if x == label]
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
         if spread:
@@ -475,7 +485,7 @@ def hinton_diagram(data=None, label=None, args=None):
         ax.autoscale_view()
         ax.invert_yaxis()
         ax.set_title(label, fontweight="bold", fontsize=14)
-        plt.savefig(os.path.join(args.out, label + '_Hinton.png'))
+        plt.savefig(os.path.join(folder_name, label + '_Hinton.png'))
         plt.close()
 
     
@@ -484,7 +494,7 @@ def cosine(x=None,y=None):
 
 
 def test_time_classification(data_test=None, data_all=None, labels=None, unseen_labels=None, groups=None, 
-                             boundaries=None, model=None, colors=None, args=None):
+                             boundaries=None, model=None, colors=None, folder_name=None):
 
     classifiers = {}
     stds = {}
@@ -548,7 +558,7 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
                 plt.scatter(x.data, y, alpha=0.75, marker='o', label=label + "_data")
                 plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
                 plt.grid()
-                plt.savefig(os.path.join(args.out, label + "_group_" + key + "_testime_distrobutions"), bbox_inches="tight")
+                plt.savefig(os.path.join(folder_name, label + "_group_" + key + "_testime_distrobutions"), bbox_inches="tight")
                 plt.close()
 
     for key in sorted(classifiers.keys()):
@@ -561,7 +571,7 @@ def test_time_classification(data_test=None, data_all=None, labels=None, unseen_
     return predicted_labels
 
 
-def label_analysis(labels=None, predictions=None, groups=None, model=None, args=None):
+def label_analysis(labels=None, predictions=None, groups=None, model=None, folder_name=None):
     
     true_labels = []
     n_groups = len(groups)
@@ -596,16 +606,16 @@ def label_analysis(labels=None, predictions=None, groups=None, model=None, args=
 
     plot_confusion_matrix(cms=cms, group_classes=zip(true_sets, pred_sets),
                           title="Confusion Matrix Singular",
-                          args=args)
+                          folder_name=folder_name)
 
 
 def plot_confusion_matrix(cms=None, group_classes=None,
                           normalize=False,
                           title=None,
                           cmap=plt.cm.Blues,
-                          args=None):
+                          folder_name=None):
 
-    fig, subfiures = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
+    fig, subfiures = plt.subplots(nrows=1, ncols=2, figsize=(20,10))
     for i, subfig in enumerate(subfiures):
 
         cm = cms[i]
@@ -639,5 +649,5 @@ def plot_confusion_matrix(cms=None, group_classes=None,
         subfig.set_ylabel('True label', fontsize=12)
         subfig.set_xlabel('Predicted label', fontsize=12)
     fig.tight_layout()
-    plt.savefig(os.path.join(args.out, title + "_confusion_matrices" + '.png'))
+    plt.savefig(os.path.join(folder_name, title + "_confusion_matrices" + '.png'))
     plt.close()
