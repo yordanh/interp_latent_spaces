@@ -49,16 +49,20 @@ def perform_reconstructions(model=None, train=None, test=None, unseen=None, no_i
     x = chainer.Variable(np.asarray(train[train_ind]))
     with chainer.using_config('train', False), chainer.no_backprop_mode():
         x1 = model(x)
-    save_images(x.data, no_images, os.path.join(args.out, 'train_' + name_suffix), args=args)
-    save_images(x1.data, no_images, os.path.join(args.out, 'train_' + name_suffix + "_rec"), args=args)
+        z1 = model.get_latent(x)
+    save_images(x=x.data, z=[], no_images=no_images, filename=os.path.join(args.out, 'train_' + name_suffix), args=args)
+    save_images(x=x1.data,z=z1.data, no_images=no_images, filename=os.path.join(args.out, 'train_' + name_suffix + "_rec"), 
+                args=args)
 
     # reconstruct testing examples
     test_ind = np.linspace(0, len(test) - 1, no_images, dtype=int)
     x = chainer.Variable(np.asarray(test[test_ind]))
     with chainer.using_config('train', False), chainer.no_backprop_mode():
         x1 = model(x)
-    save_images(x.data, no_images, os.path.join(args.out, 'test_' + name_suffix), args=args)
-    save_images(x1.data, no_images, os.path.join(args.out, 'test_' + name_suffix + "_rec"), args=args)
+        z1 = model.get_latent(x)
+    save_images(x=x.data, z=[], no_images=no_images, filename=os.path.join(args.out, 'test_' + name_suffix), args=args)
+    save_images(x=x1.data,z=z1.data, no_images=no_images, filename=os.path.join(args.out, 'test_' + name_suffix + "_rec"), 
+                args=args)
 
     # reconstruct unseen examples
     if len(unseen) != 0:
@@ -66,14 +70,17 @@ def perform_reconstructions(model=None, train=None, test=None, unseen=None, no_i
         x = chainer.Variable(np.asarray(unseen[unseen_ind]))
         with chainer.using_config('train', False), chainer.no_backprop_mode():
             x1 = model(x)
-        save_images(x.data, no_images, os.path.join(args.out, 'unseen_' + name_suffix), args=args)
-        save_images(x1.data, no_images, os.path.join(args.out, 'unseen_' + name_suffix + "_rec"), args=args)
+            z1 = model.get_latent(x)
+        save_images(x=x.data, z=[], no_images=no_images, filename=os.path.join(args.out, 'unseen_' + name_suffix), args=args)
+        save_images(x=x1.data,z=z1.data, no_images=no_images, filename=os.path.join(args.out, 'unseen_' + name_suffix + "_rec"), 
+                    args=args)
 
     # draw images from randomly sampled z under a 'vanilla' normal distribution
     z = chainer.Variable(
         np.random.normal(0, 1, (no_images, args.dimz)).astype(np.float32))
     x = model.decode(z)
-    save_images(x.data, no_images, os.path.join(args.out, 'sampled_' + name_suffix), args=args)
+    save_images(x=x.data, z=z.data, no_images=no_images, filename=os.path.join(args.out, 'sampled_' + name_suffix), 
+                args=args)
 
 
 # plot and save loss and accuracy curves
@@ -140,10 +147,16 @@ def compare_labels(test=None, test_labels=None, model=None, args=None, cuttoff_t
 
 
 # visualize the results
-def save_images(x=None, no_images=None, filename=None, args=None):
+def save_images(x=None, z=None, no_images=None, filename=None, args=None):
 
     fig, ax = plt.subplots(int(sqrt(no_images)), int(sqrt(no_images)), figsize=(9, 9), dpi=100)
-    for ai, xi in zip(ax.flatten(), x):
+    for i, (ai, xi) in enumerate(zip(ax.flatten(), x)):
+        
+        if len(z) != 0:
+            zi = z[i]
+        else:
+            zi=None
+
         if args.model == "conv":
             xi = np.swapaxes(xi, 0, 2)
         else:
@@ -154,6 +167,8 @@ def save_images(x=None, no_images=None, filename=None, args=None):
         
         if xi.shape[-1] == 1:
             xi = xi.reshape(xi.shape[:-1])
+        if zi is not None:
+            ai.set_title("{0}; {1}".format(round(zi[0],2), round(zi[1],2)))
 
         ai.set_xticks([])
         ai.set_yticks([])
