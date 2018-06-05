@@ -20,7 +20,7 @@ class DataGenerator(object):
     def __init__(self, label_mode=None):
         self.label_mode = label_mode
 
-    def generate_dataset(self, args):
+    def generate_dataset(self, ignore=[], args=None):
         if args.data == "mnist":
             # Load the MNIST dataset
             train, test = chainer.datasets.get_mnist()
@@ -156,7 +156,7 @@ class DataGenerator(object):
                         test_vectors[i] += list(np.tile(groups[str(i)].index(label), (test_n)))
 
                 # unlabelled datapoints
-                if os.path.exists(folder_name_unlabelled):
+                if os.path.exists(folder_name_unlabelled) and "unlabelled" not in ignore:
                     folder_list_unlabelled = os.listdir(folder_name_unlabelled)
                     for folder in folder_list_unlabelled:
                         image_list = os.listdir(folder_name_unlabelled + folder)
@@ -191,7 +191,7 @@ class DataGenerator(object):
                             test_vectors[i] += list(np.tile(label, (test_n)))
 
                 # unseen datapoints
-                if os.path.exists(folder_name_unseen):
+                if os.path.exists(folder_name_unseen) and "unseen" not in ignore:
                     folder_list_unseen = os.listdir(folder_name_unseen)
                     for folder in folder_list_unseen:
                         image_list = os.listdir(folder_name_unseen+folder)
