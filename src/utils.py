@@ -477,7 +477,11 @@ def plot_sampled_images(model=None, data=None, boundaries=None, samples_per_dime
             image = cv2.cvtColor(figure, cv2.COLOR_BGR2RGB)
             plt.imshow(image)
             if figure_title:
-                plt.title(figure_title, fontsize=20)
+                plt.title(figure_title + " X:[-{0},{1}], Y:[-{2},{3}]".format(round((boundaries[1,0] - boundaries[0,0]) / 2.0,1),
+                                                                              round((boundaries[1,0] - boundaries[0,0]) / 2.0,1),
+                                                                              round((boundaries[1,1] - boundaries[0,1]) / 2.0,1),
+                                                                              round((boundaries[1,1] - boundaries[0,1]) / 2.0,1)), 
+                                                                              fontsize=20)
             plt.xticks([])
             plt.yticks([])
             plt.xlabel('Z' + str(pair[0]), fontsize=20)
