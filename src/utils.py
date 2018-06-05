@@ -378,56 +378,64 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
 # samples_per_dimension has to be even
 def plot_sampled_images(model=None, data=None, boundaries=None, samples_per_dimension=16, 
                         image_size=100, offset=10, image_channels=3, filename=None, figure_title=None):
-
-        rows = image_size * samples_per_dimension + offset * samples_per_dimension
-        columns = image_size * samples_per_dimension + offset * samples_per_dimension
-        figure = np.ones((rows, columns, image_channels))
-        # major axes
-        if image_channels == 1:
-            line_pixel = [1]
-        else:
-            line_pixel = [0,0,1]
-        quadrant_size = (samples_per_dimension / 2) * image_size + ((samples_per_dimension / 2) - 1) * offset
-        figure[quadrant_size : quadrant_size + offset, :, :] = np.tile(line_pixel, (offset, (quadrant_size + offset) * 2, 1))
-        figure[:, quadrant_size : quadrant_size + offset, :] = np.tile(line_pixel, ((quadrant_size + offset) * 2, offset, 1))
         
-        # linearly spaced coordinates on the unit square were transformed through the inverse CDF (ppf) of the Gaussian
-        # to produce values of the latent variables z, since the prior of the latent space is Gaussian
-        # x and y are sptlit because of the way open cv has its axes
-        grid_x = np.linspace(boundaries[1,0], boundaries[0,0], samples_per_dimension)
-        grid_y = np.linspace(boundaries[0,1], boundaries[1,1], samples_per_dimension)
+        n_latent = model.n_latent
 
-        for i, yi in enumerate(grid_x):
-            for j, xi in enumerate(grid_y):
-                z_sample = np.array([[xi, yi]]).astype(np.float32)
-                x_decoded = model.decode(chainer.Variable(z_sample)).data
-                image_sample = x_decoded.reshape(x_decoded.shape[1:])
-                image_sample = np.swapaxes(image_sample, 0, 2)
-                image_sample = image_sample.reshape(100, 100, 3)
+        dimensions_pairs = list(itertools.combinations(range(n_latent), 2))
+        for pair in dimensions_pairs:
 
-                figure[i * image_size + i * offset: (i + 1) * image_size + i * offset,
-                       j * image_size + j * offset: (j + 1) * image_size + j * offset,
-                       :] = image_sample
+            rows = image_size * samples_per_dimension + offset * samples_per_dimension
+            columns = image_size * samples_per_dimension + offset * samples_per_dimension
+            figure = np.ones((rows, columns, image_channels))
+            # major axes
+            if image_channels == 1:
+                line_pixel = [1]
+            else:
+                line_pixel = [0,0,1]
+            quadrant_size = (samples_per_dimension / 2) * image_size + ((samples_per_dimension / 2) - 1) * offset
+            figure[quadrant_size : quadrant_size + offset, :, :] = np.tile(line_pixel, (offset, (quadrant_size + offset) * 2, 1))
+            figure[:, quadrant_size : quadrant_size + offset, :] = np.tile(line_pixel, ((quadrant_size + offset) * 2, offset, 1))
+            
+            # linearly spaced coordinates on the unit square were transformed through the inverse CDF (ppf) of the Gaussian
+            # to produce values of the latent variables z, since the prior of the latent space is Gaussian
+            # x and y are sptlit because of the way open cv has its axes
+            grid_x = np.linspace(boundaries[1,0], boundaries[0,0], samples_per_dimension)
+            grid_y = np.linspace(boundaries[0,1], boundaries[1,1], samples_per_dimension)
 
-        figure = np.array(figure*255, dtype=np.uint8)
+            for i, yi in enumerate(grid_x):
+                for j, xi in enumerate(grid_y):
+                    z_sample = np.zeros((1, n_latent))
+                    z_sample[0, pair[0]] = xi
+                    z_sample[0, pair[1]] = yi
+                    z_sample = np.array([[z_sample]]).astype(np.float32)
+                    x_decoded = model.decode(chainer.Variable(z_sample)).data
+                    image_sample = x_decoded.reshape(x_decoded.shape[1:])
+                    image_sample = np.swapaxes(image_sample, 0, 2)
+                    image_sample = image_sample.reshape(100, 100, 3)
 
-        plt.figure(figsize=(15,15))
-        image = cv2.cvtColor(figure, cv2.COLOR_BGR2RGB)
-        plt.imshow(image)
-        if figure_title:
-            plt.title(figure_title, fontsize=20)
-        plt.xticks([])
-        plt.yticks([])
-        plt.xlabel('Z1', fontsize=20)
-        plt.ylabel('Z2', fontsize=20)
-        plt.savefig(filename, bbox_inches="tight")
-        plt.close()
+                    figure[i * image_size + i * offset: (i + 1) * image_size + i * offset,
+                           j * image_size + j * offset: (j + 1) * image_size + j * offset,
+                           :] = image_sample
+
+            figure = np.array(figure*255, dtype=np.uint8)
+
+            plt.figure(figsize=(15,15))
+            image = cv2.cvtColor(figure, cv2.COLOR_BGR2RGB)
+            plt.imshow(image)
+            if figure_title:
+                plt.title(figure_title, fontsize=20)
+            plt.xticks([])
+            plt.yticks([])
+            plt.xlabel('Z' + str(pair[0]), fontsize=20)
+            plt.ylabel('Z' + str(pair[1]), fontsize=20)
+            plt.savefig(filename + '_Z' + str(pair[0]) + '_Z' + str(pair[1]), bbox_inches="tight")
+            plt.close()
 
 ########################################
 ############# EVAL METRICS #############
 ########################################
 
-def axes_alignment(data=None, labels=None, model=None, args=None):
+def axes_alignment(data=None, labels=None, model=None, folder_name=None):
 
     labels = labels.tolist()
     for label in set(labels):
@@ -435,9 +443,9 @@ def axes_alignment(data=None, labels=None, model=None, args=None):
         filtered_data = chainer.Variable(data.take(indecies, axis=0))
         latent = model.get_latent_mu(filtered_data)
         latent = latent.data
-        hinton_diagram(data=np.array([latent[:, i] for i in range(latent.shape[-1])]), label=label, args=args)
+        hinton_diagram(data=np.array([latent[:, i] for i in range(latent.shape[-1])]), label=label, folder_name=folder_name)
 
-def hinton_diagram(data=None, label=None, args=None):
+def hinton_diagram(data=None, label=None, folder_name=None):
         fig,ax = plt.subplots(1,1)
         data = np.array(data)
         principal_axes = np.identity(data.shape[0])
