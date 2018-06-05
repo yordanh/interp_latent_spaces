@@ -331,12 +331,13 @@ def main():
                             figure_title = figure_title)
 
 
-        data = np.append(test, unseen, axis=0)
-        test_labels_tmp = np.append(test_labels, unseen_labels, axis=0)
-        test_labels_tmp = test_labels_tmp.reshape(len(test_labels_tmp) / 2, 2)
-        plot_labels = np.array(["_".join(x) for x in test_labels_tmp])
-        plot_overall_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["composite"], model=model, 
-                                  overlay=False, filename=os.path.join(scatter_gif, filename))
+        data = np.repeat(np.append(test, unseen, axis=0), 2, axis=0)
+        plot_labels = np.append(test_labels, unseen_labels, axis=0)
+        for key in groups:
+            if not os.path.exists(os.path.join(scatter_gif, key)):
+                os.mkdir(os.path.join(scatter_gif, key))
+            plot_group_distribution(data=data, labels=plot_labels, boundaries=boundaries, colors=colors["singular"], 
+                                    model=model, group_id=key, filename=os.path.join(scatter_gif, key, filename))
 
     print("Making the Latent Manifold GIF\n")
     samples = [x.split('_')[0] for x in os.listdir(manifold_gif)]
@@ -346,12 +347,14 @@ def main():
     result_name = os.path.join(manifold_gif, "samples_animation.gif")
     subprocess.call(["convert", "-loop", "5", "-delay",  "50"] + samples + [result_name])
 
-    print("Making the Composite Label Distribution GIF\n")
-    distr = [x.replace(".png", "") for x in os.listdir(scatter_gif)]
-    distr.sort(key=int)
-    distr = [os.path.join(scatter_gif, x + ".png") for x in distr]
-    result_name = os.path.join(scatter_gif, "distr_animation.gif")
-    subprocess.call(["convert", "-loop", "5", "-delay",  "50"] + distr + [result_name])
+    for key in groups:
+        print("Making the Composite Label Distribution GIF for group" + key + "\n")
+        folder_name = os.path.join(scatter_gif, key)
+        distr = [x.replace(".png", "") for x in os.listdir(folder_name)]
+        distr.sort(key=int)
+        distr = [os.path.join(folder_name, x + ".png") for x in distr]
+        result_name = os.path.join(folder_name, "distr_animation.gif")
+        subprocess.call(["convert", "-loop", "5", "-delay",  "50"] + distr + [result_name])
 
 def training_loop(model=None, optimizer=None, stats=None, epochs=None, train_iter=None, test_iter=None, lf=None, 
                   models_folder=None, epochs_so_far=0, args=None):

@@ -373,6 +373,46 @@ def plot_separate_distributions(data=None, labels=None, groups=None, boundaries=
         plt.close()
         counter += 1
 
+
+def plot_group_distribution(data=None, model=None, group_id=None, labels=None, colors=None, boundaries=None, 
+                            overlay=False, filename=None):
+    plt.figure(figsize=(10, 10))
+    labels_group = labels[int(group_id)::2]
+    for label in sorted(set(labels_group)):
+        indecies = [i for i, x in enumerate(labels) if x == label]
+        filtered_data = chainer.Variable(data.take(indecies, axis=0))
+        latent = model.get_latent(filtered_data)
+        latent = latent.data
+
+        plt.scatter(latent[:, 0], latent[:, 1], c=colors[label]["data"], label=str(label), alpha=0.75)
+
+        if overlay:
+            delta = 0.025
+            mean = np.mean(latent, axis=0)
+            cov = np.cov(latent.T)
+            x = np.arange(min(latent[:, 0]), max(latent[:, 0]), delta)
+            y = np.arange(min(latent[:, 1]), max(latent[:, 1]), delta)
+            X, Y = np.meshgrid(x, y)
+            Z = multivariate_normal.pdf(np.array([zip(c,d) for c,d in zip(X,Y)]), mean=mean, cov=cov)
+            plt.contour(X, Y, Z, colors=colors[label]["dist"])
+    
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=14)
+
+    # plot bounding box for the visualised manifold
+    # boundaries are [[min_x, min_y],[max_x, max_y]]
+    plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[0,1], boundaries[0,1]], 'r') # top line
+    plt.plot([boundaries[0,0], boundaries[1,0]], [boundaries[1,1], boundaries[1,1]], 'r') # bottom line
+    plt.plot([boundaries[0,0], boundaries[0,0]], [boundaries[0,1], boundaries[1,1]], 'r') # left line
+    plt.plot([boundaries[1,0], boundaries[1,0]], [boundaries[0,1], boundaries[1,1]], 'r') # right line
+    # major axes
+    plt.plot([boundaries[0,0], boundaries[1,0]], [0,0], 'k')
+    plt.plot([0,0], [boundaries[0,1], boundaries[1,1]], 'k')
+
+    plt.grid()
+    plt.savefig(filename, bbox_inches="tight")
+    plt.close()
+
+
 # sample datapoints under the prior normal distribution and reconstruct
 # samples_per_dimension has to be even
 def plot_sampled_images(model=None, data=None, boundaries=None, samples_per_dimension=16, 
