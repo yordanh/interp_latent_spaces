@@ -173,7 +173,7 @@ if __name__ == "__main__":
 						 'yellow' : [numpy.array([111, 217, 228])],
 						 'ugreen' : [numpy.array([20, 240, 10]), numpy.array([137, 180, 62])],
 						 'green' : [numpy.array([60, 107, 10])],
-						 'blue': [numpy.array([255, 127, 0])],
+						 'blue': [numpy.array([200, 127, 0])],
 						 'blue1' : [numpy.array([255, 127, 0])],
 						 'ublue' : [numpy.array([250, 245, 13]), numpy.array([240, 21, 7])],
 						 'pink': [numpy.array([255, 0, 255])]
