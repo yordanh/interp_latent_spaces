@@ -83,11 +83,12 @@ class VAE(chainer.Chain):
 class Conv_VAE(chainer.Chain):
     """Convolutional Variational AutoEncoder"""
 
-    def __init__(self, in_channels, n_latent, groups, beta=100, gamma=100000):
+    def __init__(self, in_channels, n_latent, groups, alpha=1, beta=100, gamma=100000):
         super(Conv_VAE, self).__init__()
         with self.init_scope():
 
             self.in_channels = in_channels
+            self.alpha = alpha
             self.beta = beta
             self.gamma = gamma
             self.n_latent = n_latent
@@ -105,15 +106,15 @@ class Conv_VAE(chainer.Chain):
             # reshape from (8, 8, 8) to (1,512)
             self.encoder_dense_0 = L.Linear(512, 8)
 
-            self.encoder_mu = L.Linear(8, n_latent)
-            self.encoder_ln_var = L.Linear(8, n_latent)
+            self.encoder_mu = L.Linear(8, self.n_latent)
+            self.encoder_ln_var = L.Linear(8, self.n_latent)
 
             # label classifiers taking only the mean value into account
             for i in range(self.n_latent):
                 self.classifiers.add_link(L.Linear(1, self.groups_len[i]))
 
             # decoder
-            self.decoder_dense_0 = L.Linear(n_latent, 8)
+            self.decoder_dense_0 = L.Linear(self.n_latent, 8)
             self.decoder_dense_1 = L.Linear(8, 512)
             # reshape from (1, 512) to (8, 8, 8)
             self.decoder_conv_0 = L.Convolution2D(8, 8, ksize=3, pad=1) # (8, 8)
@@ -199,6 +200,8 @@ class Conv_VAE(chainer.Chain):
             in_labels = x[1:-1]
 
             mask = x[-1]
+            # escape dividing by 0 when there are no labelled data points in the batch
+            non_masked = sum(mask) + 1
             mask_flipped = 1 - mask
 
             rec_loss = 0
@@ -223,9 +226,9 @@ class Conv_VAE(chainer.Chain):
                     out_labels[i] = out_labels[i] * mask[:, cupy.newaxis] + fixed_labels
 
                     label_acc += F.accuracy(out_labels[i], in_labels[i])
-                    label_loss += F.softmax_cross_entropy(out_labels[i], in_labels[i]) / (k * batchsize)
+                    label_loss += F.softmax_cross_entropy(out_labels[i], in_labels[i]) / (k * non_masked)
 
-            self.rec_loss = rec_loss
+            self.rec_loss = self.alpha * rec_loss
             self.label_loss = self.gamma * label_loss
             self.label_acc = label_acc
 
